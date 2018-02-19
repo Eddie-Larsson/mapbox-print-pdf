@@ -18,7 +18,7 @@ printPdf.build()
   .portrait() // Unnecessary since it's the default but it's included for clarity.
   .attribution('© Mapbox, © OpenStreetMap')
   .title('My awesome map')
-  .fileName("a3_map.pdf")
+  .fileName('a3_map.pdf')
   .print(map, mapboxgl);
 ```
 
@@ -32,7 +32,7 @@ printPdf.build()
   .landscape()
   .attribution('© Mapbox, © OpenStreetMap')
   .title('My awesome map')
-  .fileName("a4_map.pdf")
+  .fileName('a4_map.pdf')
   .print(map, mapboxgl);
 ```
 
