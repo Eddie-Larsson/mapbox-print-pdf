@@ -56,14 +56,14 @@ printPdf.build()
 
 ## Options
 The currently supported options for the builder object are:
-* Format, the format of the pdf. Can be specified with .format().
-* Dpi, the dpi of the printed map. Can be specified with .dpi().
-* Orientation, the orientation of the pdf. Can bespecified with .landscape() or .portrait().
-* Attribution, the parties that should be attributed. Can be specified with .attribution().
-* Subject, the pdf subject. Can be specified with .subject().
-* File name, the name of the pdf file. Can be specified with .fileName().
-* Title, the title of the pdf. Can be specified with .title().
-* Font of the attribution text, can be specified with .attributionFont().
+* **Format**, the format of the pdf. Can be specified with .format().
+* **Dpi**, the dpi of the printed map. Can be specified with .dpi().
+* **Orientation**, the orientation of the pdf. Can bespecified with .landscape() or .portrait().
+* **Attribution**, the parties that should be attributed. Can be specified with .attribution().
+* **Subject**, the pdf subject. Can be specified with .subject().
+* **File name**, the name of the pdf file. Can be specified with .fileName().
+* **Title**, the title of the pdf. Can be specified with .title().
+* **Attribution font**, the font to be used when writing the attribution text. can be specified with .attributionFont().
 
 ## Attribution
 
