@@ -35,16 +35,7 @@ function toPixels(millimeters) {
 
 function toMillimeters(pixels) {
   var conversionFactor = 96 / MM_TO_IN;
-  return pixels / conversionFactor;
-}
-
-function calculateMaxDimensions(original, bounds) {
-  var aspectRatio = original.height / original.width;
-  if(bounds.width <= bounds.height*(aspectRatio)) {
-    return {height: bounds.height, width: bounds.height*(aspectRatio)};
-  } else {
-    return {height: bounds.width*(1/aspectRatio), width: bounds.width};
-  }
+  return pixels/conversionFactor;
 }
 
 function calculateMaxSize(map) {
@@ -73,7 +64,6 @@ function growToAtLeastBounds(dimensions, bounds) {
 }
 
 function validateSize(size, dpi, map) {
-
   var maxSize = calculateMaxSize(map);
   if(maxSize <= 0) return {error: "Couldn't calculate the maximum size of the render buffer"};
   var inches = size/MM_TO_IN;
@@ -82,6 +72,13 @@ function validateSize(size, dpi, map) {
       return {error: 'The maximum image dimension is ' + maxSize + 'px, but the size entered is ' + (inches * dpi) + 'px.'};
   }
   return {success: true};
+}
+
+function getDpiForSize(size, map) {
+  var maxSize = calculateMaxSize(map);
+  if(maxSize <= 0) return {error: "Couldn't calculate the maximum size of the render buffer"};
+
+  return {result: maxSize/(size/MM_TO_IN)};
 }
 
 function drawAttribution(mapCanvas, attribution, font) {
@@ -112,6 +109,8 @@ function getOrientedDimensions(dimensions, orientation) {
   }
   return orientedDimensions;
 }
+
+
 
 function Format(width, height) {
   this.height = height;
@@ -168,7 +167,34 @@ var PdfBuilder = (function() {
     var fileName = "map.pdf";
     var attributionFont = "Arial";
     var title = null;
+    var onPrint = null;
     var that = this;
+
+    function calculateValidDpi(millimeters, map) {
+      var sizeValid = validateSize(millimeters, dpi, map);
+      if(sizeValid.success) return dpi;
+      console.log(sizeValid.error);
+      var dpiRes = getDpiForSize(millimeters, map);
+      if(dpiRes.error) {
+        console.log("Error when calculating dpi for size: " + dpiRes.error);
+        dpiRes.result = dpi;
+      }
+      return dpiRes.result;
+    }
+
+    function calculateFormatedDimensions(map) {
+      var dimensions = mainConfig.getFormat(format);
+      var originalDimensions = {width: map._container.clientWidth, height: map._container.clientHeight};
+      var formatInPixels = getOrientedDimensions({
+        width: toPixels(dimensions.width),
+        height: toPixels(dimensions.height)
+      }, orientation);
+
+      var newSize = growToAtLeastBounds(originalDimensions, formatInPixels);
+      var sizeInMm = {width: toMillimeters(newSize.width), height: toMillimeters(newSize.height)}
+      dpi = Math.min(calculateValidDpi(sizeInMm.width, map), calculateValidDpi(sizeInMm.height, map));
+      return newSize;
+    }
 
     function printMap(map) {
       var dimensions = mainConfig.getFormat(format);
@@ -191,6 +217,7 @@ var PdfBuilder = (function() {
       });
 
       pdf.save(fileName);
+      if(onPrint && onPrint instanceof Function) onPrint();
     }
 
     function waitForMap(map, callback) {
@@ -203,7 +230,6 @@ var PdfBuilder = (function() {
           map.off('render', renderListener);
           printMap(map);
           if(callback) callback();
-
         }
       }
 
@@ -219,6 +245,8 @@ var PdfBuilder = (function() {
     };
 
     function createPrintMap(map, mapboxgl) {
+      var newSize = calculateFormatedDimensions(map);
+
       var actualPixelRatio = window.devicePixelRatio;
       Object.defineProperty(window, 'devicePixelRatio', {
           get: function() {return dpi / 96}
@@ -227,14 +255,7 @@ var PdfBuilder = (function() {
       hidden.setAttribute("style", "overflow: hidden; height: 0; width: 0; position: fixed;");
       document.body.appendChild(hidden);
       var container = document.createElement('div');
-      var dimensions = mainConfig.getFormat(format);
 
-      var originalDimensions = {width: map._container.clientWidth, height: map._container.clientHeight};
-      var formatInPixels = getOrientedDimensions({
-        width: toPixels(dimensions.width),
-        height: toPixels(dimensions.height)
-      }, orientation);
-      var newSize = growToAtLeastBounds(originalDimensions, formatInPixels);
       container.style.width = newSize.width + "px";
       container.style.height = newSize.height + "px";
       hidden.appendChild(container);
@@ -250,6 +271,7 @@ var PdfBuilder = (function() {
           attributionControl: false,
           preserveDrawingBuffer: true
       });
+
       waitForMap(renderMap, function() {
         renderMap.remove();
         hidden.parentNode.removeChild(hidden);
@@ -318,6 +340,11 @@ var PdfBuilder = (function() {
 
     this.attributionFont = function(nwAttributionFont) {
       attributionFont = nwAttributionFont;
+      return that;
+    }
+
+    this.onPrint = function(callback) {
+      onPrint = callback;
       return that;
     }
 

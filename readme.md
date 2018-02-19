@@ -65,6 +65,17 @@ The currently supported options for the builder object are:
 * **Title**, the title of the pdf. Can be specified with .title().
 * **Attribution font**, the font to be used when writing the attribution text. can be specified with .attributionFont().
 
+There's also support for registering a callback for when the pdf generation is complete, example usage below:
+
+```javascript
+var printPdf = require('mapbox-print-pdf');
+
+printPdf.build()
+        .onPrint(function() {
+          // This is after the pdf has been generated.
+        })
+        .print(map, mapboxgl);
+```
 ## Attribution
 
 Attribution of maps is required. See tile provider terms for details.
