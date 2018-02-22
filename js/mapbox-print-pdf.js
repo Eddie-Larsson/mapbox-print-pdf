@@ -23,19 +23,208 @@
  */
 
 var jsPDF = require("jspdf");
-var MM_TO_IN = 25.4;
+var html2pdf = require("html2pdf.js");
 var QUIESCE_TIMEOUT = 500;
 var ATTRIBUTION_RATIO = 0.01;
+var HTML_DOC_STYLE = "display: flex; flex-direction: column;";
+var MAP_CONTAINER_STYLE = "flex: 1 0 auto;";
+var HIDDEN_CONTAINER_STYLE = "overflow: hidden; height: 0; width: 0; position: fixed;";
 
-function toPixels(millimeters) {
-    var conversionFactor = 96 / MM_TO_IN;
+var UNITS = {
+  Points : "pt",
+  Pixels : "px",
+  Inches : "in",
+  Millimeters : "mm",
+  Centimeters : "cm"
+}
+UNITS.Enumerated = [UNITS.Points, UNITS.Pixels, UNITS.Inches, UNITS.Millimeters, UNITS.Centimeters];
 
-    return conversionFactor * millimeters;
-};
+var SCALE_UNITS =  ["metric", "imperial", "nautical"];
 
-function toMillimeters(pixels) {
-  var conversionFactor = 96 / MM_TO_IN;
-  return pixels/conversionFactor;
+html2pdf.makePDF = function(canvas, pageSize, opt) {
+  if(opt.dryRun) {
+    return;
+  }
+  console.log("Canvas: " + canvas.width +", " + canvas.height);
+  // Initialize the PDF.
+  var pdf = new jsPDF(opt.jsPDF);
+  pdf.addImage(canvas.toDataURL('image/' + opt.image.type, opt.image.quality), opt.image.type, opt.margin[1], opt.margin[0],
+               pageSize.inner.width, pageSize.inner.height);
+
+  // Finish the PDF.
+  if (opt.pdfCallback && opt.pdfCallback instanceof Function) {
+    opt.pdfCallback(pdf);
+  } else {
+    pdf.save(opt.filename);
+  }
+}
+
+function isString(obj) {
+  return typeof obj === 'string' || obj instanceof String;
+}
+
+function isHTMLElement(obj) {
+  return obj instanceof Element;
+}
+
+function isFunction(obj) {
+  return obj instanceof Function;
+}
+
+function isObject(obj) {
+  return obj === Object(obj);
+}
+function isNumber(obj) {
+  return typeof obj === 'number' || (typeof o == "object" && o.constructor === Number);
+}
+
+function isValidPDFUnit(value) {
+  return isString(value) && value !== UNITS.Pixels && UNITS.Enumerated.indexOf(value) !== -1;
+}
+
+function isValidScaleObject(value) {
+  if(!isObject(value)) return false;
+  if(!value.hasOwnProperty("maxWidthPercent") || !value.hasOwnProperty("unit")) return false;
+  if(!isNumber(value.maxWidthPercent) || !isString(value.unit)) return false;
+  if(value.maxWidthPercent <= 0 || SCALE_UNITS.indexOf(value.unit) === -1) return false;
+  if(value.maxWidthPercent > 1) value.maxWidthPercent /= 100;
+  return true;;
+}
+
+var Dimens = (function() {
+  var IN_TO_CM = 2.54;
+  var IN_TO_MM = 10*IN_TO_CM;
+  var IN_TO_PT = 72;
+  var IN_TO_PX = 96;
+
+  var _toInches = function(value, unit) {
+    if(unit === UNITS.Inches) return value;
+    if(unit === UNITS.Centimeters) return value / IN_TO_CM;
+    if(unit === UNITS.Millimeters) return value / IN_TO_MM;
+    if(unit === UNITS.Points) return value / IN_TO_PT;
+    if(unit === UNITS.Pixels) return value / IN_TO_PX;
+    console.error("Unrecognized unit: " + unit);
+    return -1;
+  }
+
+  var _isValidDimensionObject = function(obj) {
+    if(!isObject(obj)) return false;
+    if(!obj.hasOwnProperty("width") || !obj.hasOwnProperty("height") || !obj.hasOwnProperty("unit")) return flase
+    if(!isNumber(obj.width) || !isNumber(obj.height) || !isString(obj.unit)) return false;
+    if(obj.width <= 0 || obj.height <= 0 || UNITS.Enumerated.indexOf(obj.unit) == -1) return false;
+    return true;
+  }
+
+  var _toDimension = function(obj) {
+    if(_isValidDimensionObject(obj)) return null;
+    return new Dimens(obj.width, obj.height, obj.unit);
+  }
+
+  var _createPDFDimension = function(obj) {
+    if(_isValidDimensionObject(obj) || !isValidPDFUnit(obj.unit)) return null;
+    return new Dimens(obj.width, obj.height, obj.unit);
+  }
+
+
+  var _subtractMargin = function(dimensions, margins) {
+    var convMargins = margins.to(dimensions.unit());
+    return new Dimens(dimensions.width() - margins.left() - margins.right(),
+    dimensions.height() - margins.top() - margins.bottom(), dimensions.unit());
+  }
+  var _to = function(value, unitFrom, unitTo) {
+    if(unitFrom === unitTo) return value;
+
+    value = _toInches(value, unitFrom);
+    if(value === -1) return value;
+
+    if(unitTo === UNITS.Inches) return value;
+    if(unitTo === UNITS.Centimeters) return value * IN_TO_CM;
+    if(unitTo === UNITS.Millimeters) return value * IN_TO_MM;
+    if(unitTo === UNITS.Points) return value * IN_TO_PT;
+    if(unitTo === UNITS.Pixels) return value * IN_TO_PX;
+    console.error("Unrecognized unit: " + unitTo);
+    return -1;
+  };
+  var constructor = function(width, height, unit) {
+    this.to = function(unitTo) {
+      return new Dimens(Dimens.to(width, unit, unitTo), Dimens.to(height, unit, unitTo), unitTo);
+    };
+
+    this.toString = function() {
+      return "width: " + width + unit  + "; height: " + height + unit + ";";
+    };
+
+    this.subtractMargin = function(margin) {
+      return Dimens.subtractMargin(this, margin);
+    }
+
+    this.width = function() { return width; }
+    this.height = function() { return height; }
+    this.unit = function() { return unit; }
+  }
+  constructor.isValidDimensionObject = _isValidDimensionObject;
+  constructor.toDimension = _toDimension;
+  constructor.createPDFDimension = _createPDFDimension;
+  constructor.subtractMargin = _subtractMargin;
+  constructor.to = _to;
+  return constructor;
+})();
+
+var Margin = (function() {
+
+  var _isValidMargin = function(margin) {
+    if(isNumber(margin) && margin >= 0)  return true;
+    if(!isObject(margin)) return false;
+    if(!margin.hasOwnProperty("top") || !margin.hasOwnProperty("bottom")
+      || !margin.hasOwnProperty("right") || !!margin.hasOwnProperty("left")) return false;
+    if((!isNumber(margin.top) || margin.top < 0)
+      || (!isNumber(margin.bottom) || margin.bottom < 0)
+      || (!isNumber(margin.left) || margin.left < 0)
+      || (!isNumber(margin.right) || margin.right < 0)) return false;
+
+    return true;
+  }
+  var _createPDFMargin = function(margin, unit) {
+    if(!isValidPDFUnit(unit) || !_isValidMargin(margin)) return null;
+    if(isNumber(margin)) {
+      return new Margin({top: margin, left: margin, right: margin, bottom: margin}, unit);
+    } else {
+      return new Margin(margin, unit);
+    }
+  }
+  var constructor = function(margins, unit) {
+    var right = margins.right;
+    var left = margins.left;
+    var top = margins.top;
+    var bottom = margins.bottom;
+
+    this.to = function(toUnit) {
+      return new Margin({
+        right: Dimens.to(right, unit, toUnit),
+        left: Dimens.to(left, unit, toUnit),
+        top: Dimens.to(top, unit, toUnit),
+        bottom: Dimens.to(bottom, unit, toUnit),
+      }, toUnit)
+    };
+
+    this.top = function() { return top; }
+    this.left = function() { return left; }
+    this.right = function() { return right; }
+    this.bottom = function() { return bottom; }
+    this.toArray = function() { return [top, left, bottom, right]; }
+  }
+
+  constructor.createPDFMargin = _createPDFMargin;
+  return constructor;
+})()
+
+var Size = function(value, unit) {
+  this.to = function(toUnit) {
+    return new Size(Dimens.to(value, unit, toUnit), toUnit);
+  }
+
+  this.value = function() { return value; }
+  this.unit = function() { return unit; }
 }
 
 function calculateMaxSize(map) {
@@ -48,28 +237,29 @@ function calculateMaxSize(map) {
   return maxSize;
 }
 
-function ensureAspectRatio(dimensions, widthToHeightRatio) {
-    if(widthToHeightRatio < 1) {
-      dimensions.height /= widthToHeightRatio;
-    } else {
-      dimensions.width *= widthToHeightRatio;
-    }
-  return dimensions;
+function ensureAspectRatio(dimensions, bounds) {
+  var convertedBounds = bounds.to(dimensions.unit());
+  var widthToHeightRatio = convertedBounds.width() / convertedBounds.height();
+  if (widthToHeightRatio < 1) {
+    return new Dimens(dimensions.width(), dimensions.width() / widthToHeightRatio, dimensions.unit());
+  } else {
+    return new Dimens(dimensions.height() * widthToHeightRatio, dimensions.height(), dimensions.unit());
+  }
 }
 
 function growToAtLeastBounds(dimensions, bounds) {
-  var correctedDimensions = ensureAspectRatio(dimensions, bounds.width/bounds.height);
-  if(correctedDimensions.width < bounds.width) return bounds;
+  var convertedBounds = bounds.to(dimensions.unit());
+  var correctedDimensions = ensureAspectRatio(dimensions, convertedBounds);
+  if(correctedDimensions.width() < convertedBounds.width()) return convertedBounds;
   return correctedDimensions;
 }
 
 function validateSize(size, dpi, map) {
   var maxSize = calculateMaxSize(map);
   if(maxSize <= 0) return {error: "Couldn't calculate the maximum size of the render buffer"};
-  var inches = size/MM_TO_IN;
-  if(size <= 0) return {error: "Size must be a positive integer"};
-  if (inches * dpi > maxSize) {
-      return {error: 'The maximum image dimension is ' + maxSize + 'px, but the size entered is ' + (inches * dpi) + 'px.'};
+  var inches = size.to(UNITS.Inches);
+  if (inches.value() * dpi > maxSize) {
+      return {error: 'The maximum image dimension is ' + maxSize + 'px, but the size entered is ' + (inches.value() * dpi) + 'px.'};
   }
   return {success: true};
 }
@@ -78,10 +268,10 @@ function getDpiForSize(size, map) {
   var maxSize = calculateMaxSize(map);
   if(maxSize <= 0) return {error: "Couldn't calculate the maximum size of the render buffer"};
 
-  return {result: maxSize/(size/MM_TO_IN)};
+  return {result: maxSize/size.to(UNITS.Inches).value()};
 }
 
-function drawAttribution(mapCanvas, attribution, font) {
+/*function drawAttribution(mapCanvas, attribution, font) {
   var canvas = document.createElement('canvas');
   canvas.width = mapCanvas.width;
   canvas.height = mapCanvas.height;
@@ -96,169 +286,364 @@ function drawAttribution(mapCanvas, attribution, font) {
   ctx.textBaseline="bottom";
   ctx.fillText(attribution, canvas.width-10, canvas.height-10);
   return canvas;
-}
+}*/
 
 function getOrientedDimensions(dimensions, orientation) {
-  var orientedDimensions = {};
   if(orientation == "l") {
-    orientedDimensions.width = dimensions.height;
-    orientedDimensions.height = dimensions.width;
-  } else {
-    orientedDimensions.width = dimensions.width;
-    orientedDimensions.height = dimensions.height;
+    return new Dimens(dimensions.height(), dimensions.width(), dimensions.unit());
   }
-  return orientedDimensions;
+  return dimensions;
+}
+
+function createOrReturnHTML(html) {
+  if(isString(html)) {
+    var template = document.createElement('template');
+    html = html.trim();
+    template.innerHTML = html;
+    return template.content.firstChild;
+  } else if(isHTMLElement(html)) {
+    return html;
+  } else {
+    console.error(html + " is not a html element or string");
+    return null;
+  }
+}
+
+function createHTMLObject(htmlObj) {
+  if(isString(htmlObj) || isHTMLElement(htmlObj)) {
+    return createOrReturnHTML(htmlObj);
+  } else if(isObject(htmlObj) && htmlObj.hasOwnProperty("html")) {
+    var tmpObj = createOrReturnHTML(htmlObj.html);
+    if(tmpObj) {
+      htmlObj.html = tmpObj;
+      return htmlObj;
+    } else {
+      console.error("Invalid input: " + nwHeader);
+    }
+  } else {
+    console.error("Invalid input: " + nwHeader);
+  }
+  return null;
+}
+
+function calculateMaximumValidDpi(size, map, dpi) {
+  var sizeValid = validateSize(size, dpi, map);
+  if(sizeValid.success) return dpi;
+  console.error(sizeValid.error);
+  var dpiRes = getDpiForSize(size, map);
+  if(dpiRes.error) {
+    console.error("Error when calculating dpi for size: " + dpiRes.error);
+    dpiRes.result = dpi;
+  }
+  return dpiRes.result;
 }
 
 
+function waitForMapToRender(map, callback) {
+  var noneLoaded = false;
+  var quiesce = function() {
+    if(!noneLoaded || (!map.loaded() || !map.isStyleLoaded() || !map.areTilesLoaded())) {
+      noneLoaded = true;
+      setTimeout(quiesce, QUIESCE_TIMEOUT);
+    } else {
+      map.off('render', renderListener);
+      callback();
+    }
+  }
 
-function Format(width, height) {
-  this.height = height;
-  this.width = width;
-};
+  var initial = true;
+  var renderListener = function() {
+    noneLoaded = false;
+    if(initial && map.loaded() && map.isStyleLoaded() && map.areTilesLoaded()) {
+      initial = false;
+      quiesce();
+    }
+  }
+  map.on('render', renderListener);
+}
+
+function addDocumentContainer() {
+  var hidden = document.createElement('div');
+  hidden.setAttribute("style", HIDDEN_CONTAINER_STYLE)
+  document.body.appendChild(hidden);
+  var htmlDoc = document.createElement("div");
+  htmlDoc.setAttribute("style", HTML_DOC_STYLE);
+  hidden.appendChild(htmlDoc);
+  document.body.appendChild(hidden);
+  return hidden;
+}
+
+function addDocumentHeader(header, doc) {
+  if(header) {
+    var headerDiv = document.createElement("div");
+    headerDiv.appendChild(header);
+    doc.insertBefore(headerDiv, doc.firstChild);
+  }
+  return header;
+}
+
+function addDocumentFooter(footer, doc) {
+  if(footer) {
+    var footerDiv = document.createElement("div");
+    //footerDiv.setAttribute("style", "flex: 0 0 auto")
+    footerDiv.appendChild(footer);
+    doc.appendChild(footerDiv);
+  }
+  return footer;
+}
+
+function addMapContainer(doc, map) {
+  var container = document.createElement('div');
+
+  container.setAttribute("style", MAP_CONTAINER_STYLE + " min-width: "
+    + map._container.scrollWidth + "px; min-height: "
+    + map._container.scrollHeight + "px;");
+  doc.appendChild(container);
+  return container;
+}
+
+function resizeToFormat(doc, minSize, format) {
+  var newSize = growToAtLeastBounds(
+    minSize,
+    format
+  ).to(UNITS.Pixels);
+
+  // Min width need to be set in order for html2canvas library to pick up the whole width.
+  doc.style.minWidth = newSize.width() + newSize.unit();
+  doc.style.minHeight = newSize.height() + newSize.unit();
+}
+
+function addScale(map, scale, mapboxgl) {
+  if(scale) {
+    map.addControl(new mapboxgl.ScaleControl({
+      maxWidth: scale.maxWidthPercent * map._container.scrollWidth,
+      unit: scale.unit
+    }));
+  };
+}
+
+function replaceMapWithImage(map) {
+  var container = map._container;
+  var htmlDoc = container.parentNode;
+  var mapImage = document.createElement("img");
+  mapImage.src = map.getCanvas().toDataURL("image/png");
+  mapImage.style.width = "100%";
+  mapImage.style.height = "100%";
+  map.remove();
+  container.innerHTML = "";
+  container.appendChild(mapImage);
+}
+
+/*function replaceMapWithImage(map, format, cb) {
+  var container = map._container;
+  var htmlDoc = container.parentNode;
+
+  container.setAttribute("style", "width: " + container.scrollWidth +"px; height: " + container.scrollHeight +"px;");
+
+
+  var canvasCallback = function(canvas) {
+    map.remove();
+
+    console.log("What I receive: " + canvas.width +", " + canvas.height);
+    container.innerHTML = "";
+    canvas.style.width = "100%";
+    canvas.style.height = "100%";
+    container.setAttribute("style", MAP_CONTAINER_STYLE);
+    container.appendChild(canvas);
+
+    htmlDoc.setAttribute("style", HTML_DOC_STYLE + " width: " + format.width +"mm; height: " + format.height + "mm;");
+    cb();
+  }
+  html2pdf(container, {
+    jsPDF:        { unit: 'mm', format: [toMillimeters(container.scrollWidth), toMillimeters(container.scrollHeight)]},
+    html2canvas:  { letterRendering: true, onrendered: canvasCallback},
+    dryRun: true
+  });
+}*/
 
 var PrintPdf = (function() {
-  var formats = {
-    "a4": new Format(210, 297),
-    "a3": new Format(297, 420)
+  var DEFAULT_FORMATS = {
+    'a0': new Dimens(2383.94, 3370.39, UNITS.Points),
+    'a1': new Dimens(1683.78, 2383.94, UNITS.Points),
+    'a2': new Dimens(1190.55, 1683.78, UNITS.Points),
+    'a3': new Dimens(841.89, 1190.55, UNITS.Points),
+    'a4': new Dimens(595.28, 841.89, UNITS.Points),
+    'a5': new Dimens(419.53, 595.28, UNITS.Points),
+    'a6': new Dimens(297.64, 419.53, UNITS.Points),
+    'a7': new Dimens(209.76, 297.64, UNITS.Points),
+    'a8': new Dimens(147.40, 209.76, UNITS.Points),
+    'a9': new Dimens(104.88, 147.40, UNITS.Points),
+    'a10': new Dimens(73.70, 104.88, UNITS.Points),
+    'b0': new Dimens(2834.65, 4008.19, UNITS.Points),
+    'b1': new Dimens(2004.09, 2834.65, UNITS.Points),
+    'b2': new Dimens(1417.32, 2004.09, UNITS.Points),
+    'b3': new Dimens(1000.63, 1417.32, UNITS.Points),
+    'b4': new Dimens(708.66, 1000.63, UNITS.Points),
+    'b5': new Dimens(498.90, 708.66, UNITS.Points),
+    'b6': new Dimens(354.33, 498.90, UNITS.Points),
+    'b7': new Dimens(249.45, 354.33, UNITS.Points),
+    'b8': new Dimens(175.75, 249.45, UNITS.Points),
+    'b9': new Dimens(124.72, 175.75, UNITS.Points),
+    'b10': new Dimens(87.87, 124.72, UNITS.Points),
+    'c0': new Dimens(2599.37, 3676.54, UNITS.Points),
+    'c1': new Dimens(1836.85, 2599.37, UNITS.Points),
+    'c2': new Dimens(1298.27, 1836.85, UNITS.Points),
+    'c3': new Dimens(918.43, 1298.27, UNITS.Points),
+    'c4': new Dimens(649.13, 918.43, UNITS.Points),
+    'c5': new Dimens(459.21, 649.13, UNITS.Points),
+    'c6': new Dimens(323.15, 459.21, UNITS.Points),
+    'c7': new Dimens(229.61, 323.15, UNITS.Points),
+    'c8': new Dimens(161.57, 229.61, UNITS.Points),
+    'c9': new Dimens(113.39, 161.57, UNITS.Points),
+    'c10': new Dimens(79.37, 113.39, UNITS.Points),
+    'dl': new Dimens(311.81, 623.62, UNITS.Points),
+    'letter': new Dimens(612, 792, UNITS.Points),
+    'government-letter': new Dimens(576, 756, UNITS.Points),
+    'legal': new Dimens(612, 1008, UNITS.Points),
+    'junior-legal': new Dimens(576, 360, UNITS.Points),
+    'ledger': new Dimens(1224, 792, UNITS.Points),
+    'tabloid': new Dimens(792, 1224, UNITS.Points),
+    'credit-card': new Dimens(153, 243, UNITS.Points)
   };
-  var constructor = function() {
-    this.getFormats = function() {
-      var formatsCopy = {};
-      for (var format in formats) {
-        if (formats.hasOwnProperty(format)) {
-          var formatObj = formats[format];
-          formatsCopy[format] = new Format(formatObj.width, formatObj.height);
-        };
-      }
-      return formatsCopy;
-    };
-    this.addFormat = function(format, width, height) {
-      if(width <= 0 || height <= 0) return {error: "Invalid parameters, height and width must be greater than 0."};
-      if(formats.hasOwnProperty(format)) return {error: "Format " + format + " already exists"};
-      formats[format] = new Format(width, height);
-      return {success: true};
-    };
 
-    this.getFormat = function(format) {
-      var tmpFormat = formats[format];
-      return new Format(tmpFormat.width, tmpFormat.height);
+  var userFormats = {};
+
+  var _getFormats = function() {
+    var formatsCopy = {};
+    for (var format in DEFAULT_FORMATS) {
+      if (DEFAULT_FORMATS.hasOwnProperty(format)) {
+        formatsCopy[format] = DEFAULT_FORMATS[format];
+      };
     }
-
-    this.build = function() {
-      return new PdfBuilder();
+    for (var format in userFormats) {
+      if (userFormats.hasOwnProperty(format)) {
+        formatsCopy[format] = userFormats[format];
+      };
     }
-
+    return formatsCopy;
   };
-  return constructor;
 
+  var _isDefaultFormat = function(format) {
+    if(userFormats.hasOwnProperty(format)) return false;
+    return DEFAULT_FORMATS.hasOwnProperty(format);
+  }
+
+  var _addFormat = function(format, dimension) {
+    if(userFormats.hasOwnProperty(format)) return {error: "Format " + format + " already exists"};
+    if(!(dimension instanceof Dimens)) return {error: "Dimensions are of an invalid type"};
+    userFormats[format] = dimension;
+    return {success: true};
+  }
+
+  var _getFormat = function(format) {
+    if(userFormats.hasOwnProperty(format)) return userFormats[format];
+    if(DEFAULT_FORMATS.hasOwnProperty(format)) return DEFAULT_FORMATS[format];
+    console.error("The format " + format + " doesn't exist.");
+    return null;
+  }
+
+  var _build = function() {
+    return new PdfBuilder();
+  }
+
+  return {
+    getFormats: _getFormats,
+    isDefaultFormat: function(format) { return _isDefaultFormat(format.toLowerCase()); },
+    addFormat: function(format, width, height, unit) { return _addFormat(format.toLowerCase(), width, height, unit); },
+    getFormat: function(format) { return _getFormat(format.toLowerCase()); },
+    build: _build
+  }
 })();
 
-var mainConfig = new PrintPdf();
 
 var PdfBuilder = (function() {
 
   var constructor = function() {
     var format = "a4";
+    var renderingDimensions = null;
     var dpi = 300;
     var orientation = "p";
-    var attribution = "";
+    var author = "";
     var subject = "";
     var fileName = "map.pdf";
-    var attributionFont = "Arial";
     var title = null;
     var onPrint = null;
+    var htmlDoc = null;
+    var header = null;
+    var footer = null;
+    var scale = null;
+    var actualPixelRatio = -1;
+    var headerHeight = null;
+    var footerHeight = null;
+    var headerFontSize = null;
+    var footerFontSize = null
+    var margins = Margin.createPDFMargin(0, UNITS.Points);
     var that = this;
 
-    function calculateValidDpi(millimeters, map) {
-      var sizeValid = validateSize(millimeters, dpi, map);
-      if(sizeValid.success) return dpi;
-      console.log(sizeValid.error);
-      var dpiRes = getDpiForSize(millimeters, map);
-      if(dpiRes.error) {
-        console.log("Error when calculating dpi for size: " + dpiRes.error);
-        dpiRes.result = dpi;
-      }
-      return dpiRes.result;
-    }
+    var printMap = function(map, callback) {
 
-    function calculateFormatedDimensions(map) {
-      var dimensions = mainConfig.getFormat(format);
-      var originalDimensions = {width: map._container.clientWidth, height: map._container.clientHeight};
-      var formatInPixels = getOrientedDimensions({
-        width: toPixels(dimensions.width),
-        height: toPixels(dimensions.height)
-      }, orientation);
-
-      var newSize = growToAtLeastBounds(originalDimensions, formatInPixels);
-      var sizeInMm = {width: toMillimeters(newSize.width), height: toMillimeters(newSize.height)}
-      dpi = Math.min(calculateValidDpi(sizeInMm.width, map), calculateValidDpi(sizeInMm.height, map));
-      return newSize;
-    }
-
-    function printMap(map) {
-      var dimensions = mainConfig.getFormat(format);
-      var pdf = new jsPDF({
-          orientation: orientation,
-          unit: "mm",
-          format: [dimensions.width, dimensions.height],
-          compress: true
-      });
-      dimensions = getOrientedDimensions(dimensions, orientation);
-      pdf.addImage(drawAttribution(map.getCanvas(), attribution, attributionFont), 'png', 0, 0, dimensions.width, dimensions.height, null, 'FAST');
-
+      var dimensions = PrintPdf.getFormat(format);
       if(!title) title = map.getStyle().name;
+      replaceMapWithImage(map);
+      var pdfCallback = function(pdf) {
 
-      pdf.setProperties({
-          title: title,
-          subject: subject,
-          creator: 'mapbox-print-pdf',
-          author: attribution
-      });
+        pdf.setProperties({
+            title: title,
+            subject: subject,
+            creator: 'mapbox-print-pdf',
+            author: author
+        });
 
-      pdf.save(fileName);
-      if(onPrint && onPrint instanceof Function) onPrint();
+        pdf.save(fileName);
+        if(isFunction(callback)) callback();
+        if(isFunction(onPrint)) onPrint();
+      }
+      var pxWidths = dimensions.to(UNITS.Pixels);
+      console.log("Printing dimensions: " + pxWidths.width() + ", " + pxWidths.height());
+      var jsPdfOpts = { unit: dimensions.unit(), format: [dimensions.width(), dimensions.height()], orientation: orientation, compress: true };
+      if(PrintPdf.isDefaultFormat(format)) {
+        jsPdfOpts.format = format;
+      }
+      var convMargins = margins.to(dimensions.unit());
+        html2pdf(htmlDoc, {
+          filename:     fileName,
+          margin:       convMargins.toArray(),
+          image:        { type: 'png', quality: 1 },
+          html2canvas:  { letterRendering: true, useCORS: true, scale: 2 },
+          jsPDF:        jsPdfOpts,
+          pdfCallback: pdfCallback
+        });
     }
 
-    function waitForMap(map, callback) {
-      var noneLoaded = false;
-      var quiesce = function() {
-        if(!noneLoaded || (!map.loaded() || !map.isStyleLoaded() || !map.areTilesLoaded())) {
-          noneLoaded = true;
-          setTimeout(quiesce, QUIESCE_TIMEOUT);
-        } else {
-          map.off('render', renderListener);
-          printMap(map);
-          if(callback) callback();
-        }
-      }
-
-      var initial = true;
-      var renderListener = function() {
-        noneLoaded = false;
-        if(initial && map.loaded() && map.isStyleLoaded() && map.areTilesLoaded()) {
-          initial = false;
-          quiesce();
-        }
-      }
-      map.on('render', renderListener);
-    };
-
-    function createPrintMap(map, mapboxgl) {
-      var newSize = calculateFormatedDimensions(map);
-
-      var actualPixelRatio = window.devicePixelRatio;
+    var createHTMLDocument = function(map) {
+      actualPixelRatio = window.devicePixelRatio;
       Object.defineProperty(window, 'devicePixelRatio', {
           get: function() {return dpi / 96}
       });
-      var hidden = document.createElement('div');
-      hidden.setAttribute("style", "overflow: hidden; height: 0; width: 0; position: fixed;");
-      document.body.appendChild(hidden);
-      var container = document.createElement('div');
 
-      container.style.width = newSize.width + "px";
-      container.style.height = newSize.height + "px";
-      hidden.appendChild(container);
+      renderingDimensions = getOrientedDimensions(PrintPdf.getFormat(format), orientation).subtractMargin(margins);
+      var hidden = addDocumentContainer();
+      htmlDoc = hidden.firstChild;
+      addDocumentHeader(header, htmlDoc);
+      var container = addMapContainer(htmlDoc, map);
+      addDocumentFooter(footer, htmlDoc);
+
+      // Don't touch, strange stuff going on with html2canvas library.
+      resizeToFormat(htmlDoc, new Dimens(container.scrollWidth, container.scrollHeight, UNITS.Pixels), renderingDimensions.to(UNITS.Pixels));
+
+      var newDpi = Math.min(
+        calculateMaximumValidDpi(new Size(container.scrollWidth, UNITS.Pixels), map, dpi),
+        calculateMaximumValidDpi(new Size(container.scrollHeight, UNITS.Pixels), map, dpi)
+      );
+      if(newDpi != dpi) {
+        dpi = newDpi;
+        hidden.parentNode.removeChild(hidden);
+        document.body.appendChild(hidden);
+      }
+      return container;
+    }
+
+    var createPrintMap = function(map, mapboxgl, container) {
 
       var renderMap = new mapboxgl.Map({
           container: container,
@@ -272,36 +657,44 @@ var PdfBuilder = (function() {
           preserveDrawingBuffer: true
       });
 
-      waitForMap(renderMap, function() {
-        renderMap.remove();
-        hidden.parentNode.removeChild(hidden);
+      addScale(renderMap, scale, mapboxgl);
+
+      var whenMapIsPrinted = function() {
+        //renderMap.remove();
+        var mainContainer = htmlDoc.parentNode;
+        mainContainer.parentNode.removeChild(mainContainer);
         Object.defineProperty(window, 'devicePixelRatio', {
             get: function() {return actualPixelRatio}
         });
-      });
-      /*renderMap.once('load', function() {
-        printMap(renderMap);
-        renderMap.remove();
-        hidden.parentNode.removeChild(hidden);
-        Object.defineProperty(window, 'devicePixelRatio', {
-            get: function() {return actualPixelRatio}
-        });
-      })*/
+      }
+      var whenMapHasRendered = function() {
+        printMap(renderMap, whenMapIsPrinted);
+      }
+
+      console.log("Map: " + container.scrollWidth + ", " + container.scrollHeight);
+      console.log("Flexbox: " + htmlDoc.scrollWidth + ", " + htmlDoc.scrollHeight);
+      console.log("Map: " + container.clientWidth + ", " + container.clientHeight);
+      console.log("Flexbox: " + htmlDoc.clientWidth + ", " + htmlDoc.clientHeight);
+      waitForMapToRender(renderMap, whenMapHasRendered);
     };
 
     this.format = function(nwFormat) {
-      nwFormat = nwFormat.toLowerCase();
-      if(!mainConfig.getFormats().hasOwnProperty(nwFormat)) {
-        console.log("The format " + nwFormat + " doesn't exist.");
-        return that;
+      if(isString(nwFormat) && PrintPdf.getFormat(nwFormat)) {
+        format = nwFormat;
+      } else if(nwFormat) {
+        var dimensions = Dimens.createPDFDimension(nwFormat);
+        if(dimensions == null || !nwFormat.hasOwnProperty("name")) {
+          console.error("Invalid format: " + nwFormat);
+        } else {
+          PrintPdf.addFormat(nwFormat.name, dimensions)
+        }
       }
-      format = nwFormat;
       return that;
     };
 
     this.dpi = function(nwDpi) {
       if(nwDpi <= 0) {
-        console.log("The dpi must be greater than 0, given value was " + nwDpi);
+        console.error("The dpi must be greater than 0, given value was " + nwDpi);
         return that;
       }
       dpi = nwDpi;
@@ -318,8 +711,8 @@ var PdfBuilder = (function() {
       return that;
     };
 
-    this.attribution = function(nwAttribution) {
-      attribution = nwAttribution;
+    this.author = function(nwAuthor) {
+      author = nwAuthor;
       return that;
     }
 
@@ -338,28 +731,55 @@ var PdfBuilder = (function() {
       return that;
     }
 
-    this.attributionFont = function(nwAttributionFont) {
-      attributionFont = nwAttributionFont;
-      return that;
-    }
-
     this.onPrint = function(callback) {
       onPrint = callback;
       return that;
     }
 
-    this.print = function(map, mapboxgl) {;
+    this.header = function(nwHeader) {
+      var tmpHeader = createHTMLObject(nwHeader);
+      if(tmpHeader) header = tmpHeader;
+      return that;
+    }
+
+    this.footer = function(nwFooter) {
+      var tmpFooter = createHTMLObject(nwFooter);
+      if(tmpFooter) footer = tmpFooter;
+      return that;
+    }
+
+    this.scale = function(nwScale) {
+      if(isValidScaleObject(nwScale)) {
+        scale = nwScale;
+      } else {
+        console.error("The given scale is invalid: " + nwScale);
+      }
+      return that;
+    }
+
+    this.margins = function(nwMargins, unit) {
+      var tmpMargins = Margin.createPDFMargin(nwMargins, unit ? unit : UNITS.Millimeters);
+      if(tmpMargins) {
+        margins = tmpMargins;
+      } else {
+        console.error("The provided arguments are invalid: " + nwMargins +", " + unit);
+      }
+      return that;
+    }
+
+    this.print = function(map, mapboxgl) {
       if(!map.loaded()) return {error: "The given map hasn't been fully loaded"};
-      var dimensions = mainConfig.getFormat(format);
-      var res = validateSize(dimensions.height, dpi, map);
+      var dimensions = PrintPdf.getFormat(format);
+      var res = validateSize(new Size(dimensions.height(), dimensions.unit()), dpi, map);
       if(!res.success) return {error: "Invalid height: " + res.error};
-      res = validateSize(dimensions.width, dpi, map);
+      res = validateSize(new Size(dimensions.width(), dimensions.unit()), dpi, map);
       if(!res.success) return {error: "Invalid width: " + res.error};
-      createPrintMap(map, mapboxgl);
+      var container = createHTMLDocument(map);
+      createPrintMap(map, mapboxgl, container);
     }
 
   };
   return constructor;
 })();
 
-module.exports = mainConfig;
+module.exports = PrintPdf;

@@ -23,6 +23,7 @@
   },
   "homepage": "https://github.com/Eddie-Larsson/mapbox-print-pdf#readme",
   "dependencies": {
+    "html2pdf.js": "github:eKoopmans/html2pdf#pdf-callback",
     "jspdf": "^1.3.5"
   }
 }
