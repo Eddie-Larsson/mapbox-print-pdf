@@ -24,10 +24,12 @@
 
 var jsPDF = require("jspdf");
 var html2canvas = require("html2canvas");
+var check = require("./type-check.js");
+var scaleElements = require("./scale-elements.js");
 var QUIESCE_TIMEOUT = 500;
 var ATTRIBUTION_RATIO = 0.01;
-var HTML_DOC_STYLE = "display: inline-flex; flex-direction: column;";
-var MAP_CONTAINER_STYLE = "flex: 1 0 auto;";
+var HTML_DOC_STYLE = "display: -webkit-inline-box;display: -ms-inline-flexbox;display: inline-flex;-webkit-box-orient: vertical;-webkit-box-direction: normal;-ms-flex-direction: column;flex-direction: column;";
+var MAP_CONTAINER_STYLE = "-webkit-box-flex: 1;-ms-flex: 1 0 auto;flex: 1 0 auto;";
 var HIDDEN_CONTAINER_STYLE = "overflow: hidden; height: 0; width: 0; position: fixed;";
 
 var UNITS = {
@@ -41,28 +43,8 @@ UNITS.Enumerated = [UNITS.Points, UNITS.Pixels, UNITS.Inches, UNITS.Millimeters,
 
 var SCALE_UNITS = ["metric", "imperial", "nautical"];
 
-function isString(obj) {
-  return typeof obj === 'string' || obj instanceof String;
-}
-
-function isHTMLElement(obj) {
-  return obj instanceof Element;
-}
-
-function isFunction(obj) {
-  return obj instanceof Function;
-}
-
-function isObject(obj) {
-  return obj === Object(obj);
-}
-
-function isNumber(obj) {
-  return typeof obj === 'number' || (typeof o == "object" && o.constructor === Number);
-}
-
 function isValidPDFUnit(value) {
-  return isString(value) && value !== UNITS.Pixels && UNITS.Enumerated.indexOf(value) !== -1;
+  return check.isString(value) && value !== UNITS.Pixels && UNITS.Enumerated.indexOf(value) !== -1;
 }
 
 function isSameAspectRatio(first, second) {
@@ -73,9 +55,9 @@ function isSameAspectRatio(first, second) {
 }
 
 function isValidScaleObject(value) {
-  if (!isObject(value)) return false;
+  if (!check.isObject(value)) return false;
   if (!value.hasOwnProperty("maxWidthPercent") || !value.hasOwnProperty("unit")) return false;
-  if (!isNumber(value.maxWidthPercent) || !isString(value.unit)) return false;
+  if (!check.isNumber(value.maxWidthPercent) || !check.isString(value.unit)) return false;
   if (value.maxWidthPercent <= 0 || SCALE_UNITS.indexOf(value.unit) === -1) return false;
   if (value.maxWidthPercent > 1) value.maxWidthPercent /= 100;
   return true;;
@@ -106,9 +88,9 @@ var Dimens = (function() {
   }
 
   var _isValidDimensionObject = function(obj) {
-    if (!isObject(obj)) return false;
-    if (!obj.hasOwnProperty("width") || !obj.hasOwnProperty("height") || !obj.hasOwnProperty("unit")) return flase
-    if (!isNumber(obj.width) || !isNumber(obj.height) || !isString(obj.unit)) return false;
+    if (!check.isObject(obj)) return false;
+    if (!obj.hasOwnProperty("width") || !obj.hasOwnProperty("height") || !obj.hasOwnProperty("unit")) return false;
+    if (!check.isNumber(obj.width) || !check.isNumber(obj.height) || !check.isString(obj.unit)) return false;
     if (obj.width <= 0 || obj.height <= 0 || UNITS.Enumerated.indexOf(obj.unit) == -1) return false;
     return true;
   }
@@ -177,20 +159,20 @@ var Dimens = (function() {
 var Margin = (function() {
 
   var _isValidMargin = function(margin) {
-    if (isNumber(margin) && margin >= 0) return true;
-    if (!isObject(margin)) return false;
+    if (check.isNumber(margin) && margin >= 0) return true;
+    if (!check.isObject(margin)) return false;
     if (!margin.hasOwnProperty("top") || !margin.hasOwnProperty("bottom") ||
       !margin.hasOwnProperty("right") || !!margin.hasOwnProperty("left")) return false;
-    if ((!isNumber(margin.top) || margin.top < 0) ||
-      (!isNumber(margin.bottom) || margin.bottom < 0) ||
-      (!isNumber(margin.left) || margin.left < 0) ||
-      (!isNumber(margin.right) || margin.right < 0)) return false;
+    if ((!check.isNumber(margin.top) || margin.top < 0) ||
+      (!check.isNumber(margin.bottom) || margin.bottom < 0) ||
+      (!check.isNumber(margin.left) || margin.left < 0) ||
+      (!check.isNumber(margin.right) || margin.right < 0)) return false;
 
     return true;
   }
   var _createPDFMargin = function(margin, unit) {
     if (!isValidPDFUnit(unit) || !_isValidMargin(margin)) return null;
-    if (isNumber(margin)) {
+    if (check.isNumber(margin)) {
       return new Margin({
         top: margin,
         left: margin,
@@ -263,17 +245,20 @@ function calculateMaxSize(map) {
 function ensureAspectRatio(dimensions, bounds) {
   var convertedBounds = bounds.to(dimensions.unit());
   var widthToHeightRatio = convertedBounds.width() / convertedBounds.height();
-  if (widthToHeightRatio < 1) {
-    return new Dimens(dimensions.width(), dimensions.width() / widthToHeightRatio, dimensions.unit());
-  } else {
+  var tmpHeight = dimensions.width() / widthToHeightRatio;
+
+  if(tmpHeight < dimensions.height()) {
     return new Dimens(dimensions.height() * widthToHeightRatio, dimensions.height(), dimensions.unit());
+  } else {
+    return new Dimens(dimensions.width(), dimensions.width() / widthToHeightRatio, dimensions.unit());
   }
 }
 
 function growToAtLeastBounds(dimensions, bounds) {
   var convertedBounds = bounds.to(dimensions.unit());
   var correctedDimensions = ensureAspectRatio(dimensions, convertedBounds);
-  if (correctedDimensions.width() < convertedBounds.width()) return convertedBounds;
+  if (correctedDimensions.width() < convertedBounds.width()
+  && correctedDimensions.height() < convertedBounds.height()) return convertedBounds;
   return correctedDimensions;
 }
 
@@ -344,12 +329,12 @@ function getOrientedDimensions(dimensions, orientation) {
 }
 
 function createOrReturnHTML(html) {
-  if (isString(html)) {
+  if (check.isString(html)) {
     var template = document.createElement('template');
     html = html.trim();
     template.innerHTML = html;
     return template.content.firstChild;
-  } else if (isHTMLElement(html)) {
+  } else if (check.isHTMLElement(html)) {
     return html;
   } else {
     console.error(html + " is not a html element or string");
@@ -358,12 +343,12 @@ function createOrReturnHTML(html) {
 }
 
 function createHTMLObject(htmlObj) {
-  if (isString(htmlObj) || isHTMLElement(htmlObj)) {
+  if (check.isString(htmlObj) || check.isHTMLElement(htmlObj)) {
     var tmpHtml = createOrReturnHTML(htmlObj);
     if (tmpHtml) return {
       html: tmpHtml
     };
-  } else if (isObject(htmlObj) && htmlObj.hasOwnProperty("html")) {
+  } else if (check.isObject(htmlObj) && htmlObj.hasOwnProperty("html")) {
     var tmpObj = createOrReturnHTML(htmlObj.html);
     if (tmpObj) {
       htmlObj.html = tmpObj;
@@ -426,23 +411,11 @@ function addDocumentContainer() {
   return hidden;
 }
 
-function addDocumentHeader(header, doc) {
-  if (header) {
-    var headerDiv = document.createElement("div");
-    headerDiv.appendChild(header.html);
-    doc.insertBefore(headerDiv, doc.firstChild);
+function addHTMLObject(htmlObj, container) {
+  if(htmlObj) {
+    container.appendChild(htmlObj);
   }
-  return header;
-}
-
-function addDocumentFooter(footer, doc) {
-  if (footer) {
-    var footerDiv = document.createElement("div");
-    //footerDiv.setAttribute("style", "flex: 0 0 auto")
-    footerDiv.appendChild(footer.html);
-    doc.appendChild(footerDiv);
-  }
-  return footer;
+  return htmlObj;
 }
 
 function addMapContainer(doc, map) {
@@ -476,6 +449,27 @@ function replaceMapWithImage(map) {
   map.remove();
   container.innerHTML = "";
   container.appendChild(mapImage);
+}
+
+function getRenderingDimensions(format, orientation, margins) {
+  return getOrientedDimensions(PrintPdf.getFormat(format), orientation).subtractMargin(margins);
+}
+
+function scaleHTMLObjects(htmlObjects, scaling, newSize) {
+  if(!check.isArray(htmlObjects)) return;
+  if(!check.isObject(scaling) || !(scaling.baseLine instanceof Dimens)) return;
+  var percent = 0;
+  var baseLine = scaling.baseLine;
+  newSize = newSize.to(baseLine.unit());
+  if(scaling.widthAndHeight) {
+    percent = (newSize.width() + newSize.height())/(baseLine.width() + baseLine.height());
+  } else if(scaling.height) {
+    percent = newSize.height()/baseLine.height();
+  } else {
+    percent = newSize.width()/baseLine.width();
+  }
+  var handlers = check.isArray(scaling.handlers) ? scaling.handlers : [];
+  scaleElements(htmlObjects, handlers, percent);
 }
 
 var PrintPdf = (function() {
@@ -545,6 +539,10 @@ var PrintPdf = (function() {
     return DEFAULT_FORMATS.hasOwnProperty(format);
   }
 
+  var _formatExists = function(format) {
+    return userFormats.hasOwnProperty(format) || DEFAULT_FORMATS.hasOwnProperty(format);
+  }
+
   var _addFormat = function(format, dimension) {
     if (userFormats.hasOwnProperty(format)) return {
       error: "Format " + format + " already exists"
@@ -580,6 +578,9 @@ var PrintPdf = (function() {
     getFormat: function(format) {
       return _getFormat(format.toLowerCase());
     },
+    formatExists: function(format) {
+      return _formatExists(format.toLowerCase());
+    },
     build: _build
   }
 })();
@@ -589,13 +590,13 @@ var PdfBuilder = (function() {
 
   var constructor = function() {
     var format = "a4";
-    var renderingDimensions = null;
     var dpi = 300;
     var orientation = "p";
     var htmlDoc = null;
     var header = null;
     var footer = null;
     var scale = null;
+    var scaling = null;
     var actualPixelRatio = -1;
     var margins = Margin.createPDFMargin(0, UNITS.Points);
     var that = this;
@@ -613,7 +614,6 @@ var PdfBuilder = (function() {
     var _printMap = function(map) {
       return new Promise(function(resolve, reject) {
         var dimensions = PrintPdf.getFormat(format);
-        var orientedDimensions = getOrientedDimensions(dimensions, orientation);
         var convMargins = margins.to(dimensions.unit());
         replaceMapWithImage(map);
 
@@ -632,10 +632,10 @@ var PdfBuilder = (function() {
           scale: 2
         }).then(function(canvas) {
           var pdf = new jsPDF(jsPdfOpts);
-
+          var renderingDimensions = getRenderingDimensions(format, orientation, convMargins);
           pdf.addImage(canvas, 'png', convMargins.left(), convMargins.top(),
-            orientedDimensions.width() - convMargins.left() - convMargins.right(),
-            orientedDimensions.height() - convMargins.top() - convMargins.bottom(), null, 'FAST');
+            renderingDimensions.width(),
+            renderingDimensions.height(), null, 'FAST');
 
           _cleanup()
           resolve(pdf);
@@ -644,19 +644,27 @@ var PdfBuilder = (function() {
 
     }
 
-    var _resizeToFormat = function(formatDimens, elem) {
+    var _resizeToFormat = function(elem) {
       var newSize;
+      var renderingDimensions = getRenderingDimensions(format, orientation, margins);
       var elemDimens = new Dimens(elem.scrollWidth, elem.scrollHeight, UNITS.Pixels);
-      do {
-        var newSize = growToAtLeastBounds(elemDimens, formatDimens).to(UNITS.Pixels);
-        elem.style.width = newSize.width() + newSize.unit();
-        elem.style.height = newSize.height() + newSize.unit();
 
-        setFontSizeRelativeToFormat(header, renderingDimensions, newSize);
-        setFontSizeRelativeToFormat(footer, renderingDimensions, newSize);
-
-        elemDimens = new Dimens(elem.scrollWidth, elem.scrollHeight, UNITS.Pixels);
-      } while (!isSameAspectRatio(elemDimens, formatDimens));
+      if(scaling) {
+        if(!scaling.baseLine) {
+          scaling.baseLine = renderingDimensions;
+        } else {
+        }
+      }
+      var newSize = growToAtLeastBounds(elemDimens, renderingDimensions).to(UNITS.Pixels);
+      elem.style.minWidth = newSize.width() + newSize.unit();
+      elem.style.minHeight = newSize.height() + newSize.unit();
+      scaleHTMLObjects([header, footer], scaling, newSize);
+      elemDimens = new Dimens(elem.scrollWidth, elem.scrollHeight, UNITS.Pixels);
+      if(!isSameAspectRatio(elemDimens, renderingDimensions)) {
+        var newSize = growToAtLeastBounds(elemDimens, renderingDimensions).to(UNITS.Pixels);
+        elem.style.minWidth = newSize.width() + newSize.unit();
+        elem.style.minHeight = newSize.height() + newSize.unit();
+      }
     }
 
     var _adjustDPI = function(map) {
@@ -679,13 +687,14 @@ var PdfBuilder = (function() {
         }
       });
 
-      renderingDimensions = getOrientedDimensions(PrintPdf.getFormat(format), orientation).subtractMargin(margins);
+      var renderingDimensions = getRenderingDimensions(format, orientation, margins);
       var hidden = addDocumentContainer();
       htmlDoc = hidden.firstChild;
-      addDocumentHeader(header, htmlDoc);
+      addHTMLObject(header, htmlDoc);
       var container = addMapContainer(htmlDoc, map);
-      addDocumentFooter(footer, htmlDoc);
-      _resizeToFormat(renderingDimensions, htmlDoc);
+      addHTMLObject(footer, htmlDoc);
+      _resizeToFormat(htmlDoc);
+      console.log(new Dimens(container.scrollWidth, container.scrollHeight, UNITS.Pixels).toString());
       _adjustDPI(map);
       return container;
     }
@@ -708,9 +717,9 @@ var PdfBuilder = (function() {
     };
 
     this.format = function(nwFormat) {
-      if (isString(nwFormat) && PrintPdf.getFormat(nwFormat)) {
+      if (check.isString(nwFormat) && PrintPdf.getFormat(nwFormat)) {
         format = nwFormat;
-      } else if (isObject(nwFormat)) {
+      } else if (check.isObject(nwFormat)) {
         var dimensions = Dimens.createPDFDimension(nwFormat);
         if (dimensions == null || !nwFormat.hasOwnProperty("name")) {
           console.error("Invalid format: " + nwFormat);
@@ -741,16 +750,17 @@ var PdfBuilder = (function() {
     };
 
     this.header = function(nwHeader) {
-      var tmpHeader = createHTMLObject(nwHeader);
+      var tmpHeader = createOrReturnHTML(nwHeader);
       if (tmpHeader) header = tmpHeader;
       return that;
     }
 
     this.footer = function(nwFooter) {
-      var tmpFooter = createHTMLObject(nwFooter);
+      var tmpFooter = createOrReturnHTML(nwFooter);
       if (tmpFooter) footer = tmpFooter;
       return that;
     }
+
 
     this.scale = function(nwScale) {
       if (isValidScaleObject(nwScale)) {
@@ -758,6 +768,22 @@ var PdfBuilder = (function() {
       } else {
         console.error("The given scale is invalid: " + nwScale);
       }
+      return that;
+    }
+
+    this.scaling = function(nwScaling) {
+      if(Dimens.isValidDimensionObject(nwScaling)) {
+        nwScaling = {baseLine: Dimens.toDimension(nwScaling)};
+      } else if(check.isString(nwScaling) && PrintPdf.formatExists(nwScaling)) {
+        nwScaling = {baseLine: PrintPdf.getFormat(nwScaling)};
+      } else if(check.isObject(nwScaling) && nwScaling.hasOwnProperty("baseLine")) {
+        if(Dimens.isValidDimensionObject(nwScaling.baseLine)) {
+          nwScaling.baseLine = Dimens.toDimension(nwScaling.baseLine)
+        } else if(check.isString(nwScaling.baseLine) && PrintPdf.formatExists(nwScaling.baseLine)) {
+          nwScaling.baseLine = PrintPdf.getFormat(nwScaling.baseLine);
+        }
+      }
+      if(check.isObject(nwScaling)) scaling = nwScaling;
       return that;
     }
 
