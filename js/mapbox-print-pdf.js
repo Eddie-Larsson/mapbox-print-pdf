@@ -284,18 +284,6 @@ function addScale(map, scale, mapboxgl) {
   };
 }
 
-function replaceMapWithImage(map) {
-  var container = map._container;
-  var mapImage = document.createElement("img");
-  mapImage.src = map.getCanvas().toDataURL("image/png");
-  mapImage.style.width = "100%";
-  mapImage.style.height = "100%";
-
-  map.remove();
-  container.innerHTML = "";
-  container.appendChild(mapImage);
-}
-
 function calculateRenderSize(elements, mapDimens, innerFormat) {
   if(!check.isArray(elements)) return null;
   var _elements = [];
@@ -371,7 +359,8 @@ var PdfBuilder = (function() {
     var renderDimensions = null;
     var that = this;
 
-    var _cleanup = function() {
+    var _cleanup = function(map) {
+      map.remove();
       var parent = htmlDoc.parentNode;
       parent.parentNode.removeChild(parent);
       Object.defineProperty(window, 'devicePixelRatio', {
@@ -385,7 +374,6 @@ var PdfBuilder = (function() {
       return new Promise(function(resolve, reject) {
         var dimensions = PrintPdf.getFormat(format);
         var convMargins = margins.to(dimensions.unit());
-        replaceMapWithImage(map);
 
         var pdf = new jsPDF({
           unit: dimensions.unit(),
@@ -393,18 +381,19 @@ var PdfBuilder = (function() {
           orientation: orientation,
           compress: true
         });
-        html2canvas(htmlDoc, {
-          letterRendering: true,
-          useCORS: true,
-          scale: 2
-        }).then(function(canvas) {
+        var writeCanvasToPdf = function(canvas) {
           var renderFormat = getRenderFormat(format, orientation, convMargins);
           pdf.addImage(canvas, 'png', convMargins.left(), convMargins.top(),
             renderFormat.width(),
             renderFormat.height(), null, 'FAST');
           _cleanup(map)
           resolve(pdf);
-        });
+        }
+        html2canvas(htmlDoc, {
+          letterRendering: true,
+          useCORS: true,
+          scale: 2
+        }).then(writeCanvasToPdf);
       });
     }
 
