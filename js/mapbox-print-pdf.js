@@ -30,10 +30,10 @@ var dimensions = require("./dimensions.js")
 var Dimens = dimensions.Dimens;
 var Margin = dimensions.Margin;
 var Size = dimensions.Size;
+var Html = require("./html-container.js");
 var UNITS = dimensions.UNITS;
 var SCALE_UNITS = dimensions.SCALE_UNITS;
 var QUIESCE_TIMEOUT = 500;
-var HIDDEN_CONTAINER_STYLE = "overflow: hidden; height: 0; width: 0; position: fixed;";
 
 
 
@@ -230,80 +230,11 @@ function getDpiForSize(size, map) {
   };
 }
 
-function ensureValidHTMLObject(obj) {
-  if(!Dimens.isValidDimensionObject(obj.min)) obj.min = new Dimens(0, 0, UNITS.Points);
-  obj.min = Dimens.toDimension(obj.min);
-  if(!Dimens.isValidDimensionObject(obj.max)) obj.max = new Dimens(Number.MAX_VALUE, Number.MAX_VALUE, UNITS.Points);
-  obj.max = Dimens.toDimension(obj.max);
-
-  if(!check.isNumber(obj.heightPercent) || obj.heightPercent < 0 || obj.heightPercent >= 100) obj.heightPercent = 5;
-  if(check.isObject(obj.scaling)) {
-    var scaling = createScalingObject(obj.scaling);
-    if(!scaling) {
-      obj.scaling = null;
-      console.error(scaling + " is not a valid scaling object.");
-    } else {
-      obj.scaling = scaling;
-    }
-  }
-}
-
-function createScalingObject(val) {
-  if(Dimens.isValidDimensionObject(val)) {
-    return {baseLine: Dimens.toDimension(val)};
-  } else if(check.isString(val) && PrintPdf.formatExists(val)) {
-    return {baseLine: PrintPdf.getFormat(val)};
-  } else if(check.isObject(val) && val.hasOwnProperty("baseLine")) {
-    if(Dimens.isValidDimensionObject(val.baseLine)) {
-      val.baseLine = Dimens.toDimension(val.baseLine);
-      return val;
-    } else if(check.isString(val.baseLine) && PrintPdf.formatExists(val.baseLine)) {
-      val.baseLine = PrintPdf.getFormat(val.baseLine);
-      return val;
-    }
-  }
-  return null;
-}
-
 function getOrientedDimensions(dimensions, orientation) {
   if (orientation == "l") {
     return new Dimens(dimensions.height(), dimensions.width(), dimensions.unit());
   }
   return dimensions;
-}
-
-function createOrReturnHTML(html) {
-  if (check.isString(html)) {
-    var template = document.createElement('template');
-    html = html.trim();
-    template.innerHTML = html;
-    return template.content.firstChild;
-  } else if (check.isHTMLElement(html)) {
-    return html;
-  } else {
-    console.error(html + " is not a html element or string");
-    return null;
-  }
-}
-
-function createHTMLObject(htmlObj) {
-  if (check.isString(htmlObj) || check.isHTMLElement(htmlObj)) {
-    var tmpHtml = createOrReturnHTML(htmlObj);
-    if (tmpHtml) return {
-      html: tmpHtml
-    };
-  } else if (check.isObject(htmlObj) && htmlObj.hasOwnProperty("html")) {
-    var tmpObj = createOrReturnHTML(htmlObj.html);
-    if (tmpObj) {
-      htmlObj.html = tmpObj;
-      return htmlObj;
-    } else {
-      console.error("Invalid input: " + nwHeader);
-    }
-  } else {
-    console.error("Invalid input: " + nwHeader);
-  }
-  return null;
 }
 
 function calculateMaximumValidDpi(size, map, dpi) {
@@ -342,38 +273,6 @@ function waitForMapToRender(map, callback) {
     map.on('render', renderListener);
   });
 
-}
-
-function createDocumentContainer() {
-  var hidden = document.createElement('div');
-  hidden.setAttribute("style", HIDDEN_CONTAINER_STYLE);
-  var doc = document.createElement("div");
-  doc.setAttribute("style", "display:inline-block;");
-  hidden.appendChild(doc);
-  document.body.appendChild(hidden);
-  return doc;
-}
-
-function addHTMLObject(htmlObj, container, dimens) {
-  dimens = dimens.to(UNITS.Pixels);
-  if(check.isObject(htmlObj) && check.isHTMLElement(htmlObj.html)) {
-    var htmlContainer = document.createElement('div');
-    htmlContainer.style.width = dimens.width() + dimens.unit();
-    htmlContainer.style.height = dimens.height() + dimens.unit();
-    htmlContainer.appendChild(htmlObj.html);
-    container.appendChild(htmlContainer);
-  }
-  return htmlObj;
-}
-
-function createMapContainer(container, dimens) {
-  var mapContainer = document.createElement('div');
-  dimens = dimens.to(UNITS.Pixels);
-  mapContainer.style.width = dimens.width() + dimens.unit();
-  mapContainer.style.height = dimens.height() + dimens.unit();
-  mapContainer.style.backgroundColor = "red";
-  container.appendChild(mapContainer);
-  return mapContainer;
 }
 
 function addScale(map, scale, mapboxgl) {
@@ -437,36 +336,18 @@ function createSubdividedRenderSize(header, footer, renderSize) {
   var footerPercent = check.isObject(footer) ? footer.heightPercent/100 : 0;
   var mapPercent = 1 - headerPercent - footerPercent;
   if(check.isObject(header)) {
-    renderDimensions.header = new Dimens(renderSize.width(), renderSize.height()*headerPercent, mapDimens.unit());
+    renderDimensions.header = new Dimens(renderSize.width(), renderSize.height()*headerPercent, renderSize.unit());
   }
   if(check.isObject(footer)) {
-    renderDimensions.footer = new Dimens(renderSize.width(), renderSize.height()*footerPercent, mapDimens.unit());
+    renderDimensions.footer = new Dimens(renderSize.width(), renderSize.height()*footerPercent, renderSize.unit());
   }
-  renderDimensions.map = new Dimens(renderSize.width(), renderSize.height()*mapPercent, mapDimens.unit());
+  renderDimensions.map = new Dimens(renderSize.width(), renderSize.height()*mapPercent, renderSize.unit());
 
-  return pageDimensions;
+  return renderDimensions;
 }
 
 function getRenderFormat(format, orientation, margins) {
   return getOrientedDimensions(PrintPdf.getFormat(format), orientation).subtractMargin(margins);
-}
-
-function scaleHTMLObject(htmlObject, newSize) {
-  if(!check.isObject(htmlObject)) return;
-  var scaling = htmlObject.scaling;
-  if(!check.isObject(scaling) || !(scaling.baseLine instanceof Dimens)) return;
-  var percent = 0;
-  var baseLine = scaling.baseLine;
-  newSize = newSize.to(baseLine.unit());
-  if(scaling.widthAndHeight) {
-    percent = (newSize.width() + newSize.height())/(baseLine.width() + baseLine.height());
-  } else if(scaling.height) {
-    percent = newSize.height()/baseLine.height();
-  } else {
-    percent = newSize.width()/baseLine.width();
-  }
-  var handlers = check.isArray(scaling.handlers) ? scaling.handlers : [];
-  scaleElement(htmlObject.html, handlers, percent);
 }
 
 var PdfBuilder = (function() {
@@ -511,9 +392,10 @@ var PdfBuilder = (function() {
           useCORS: true,
           scale: 2
         }).then(function(canvas) {
+          var renderFormat = getRenderFormat(format, orientation, convMargins);
           pdf.addImage(canvas, 'png', convMargins.left(), convMargins.top(),
-            renderingDimensions.width(),
-            renderingDimensions.height(), null, 'FAST');
+            renderFormat.width(),
+            renderFormat.height(), null, 'FAST');
           _cleanup(map)
           resolve(pdf);
         });
@@ -550,14 +432,14 @@ var PdfBuilder = (function() {
       var renderSize = calculateRenderSize([header, footer],
         new Dimens(map._container.scrollWidth, map._container.scrollHeight, UNITS.Pixels), renderFormat);
       renderDimensions = createSubdividedRenderSize(header, footer, renderSize);
-      htmlDoc = createDocumentContainer();
-      addHTMLObject(header, htmlDoc, renderDimensions.header);
-      var container = createMapContainer(htmlDoc, renderDimensions.map);
-      addHTMLObject(footer, htmlDoc, renderDimensions.footer);
+      htmlDoc = Html.createDocumentContainer();
+      Html.addHTMLObject(header, htmlDoc, renderDimensions.header);
+      var container = Html.createMapContainer(htmlDoc, renderDimensions.map);
+      Html.addHTMLObject(footer, htmlDoc, renderDimensions.footer);
       _adjustDPI(renderDimensions.map, map);
 
-      scaleHTMLObject(header, renderDimensions.header);
-      scaleHTMLObject(footer, renderDimensions.footer);
+      Html.scaleHTMLObject(header, renderDimensions.header);
+      Html.scaleHTMLObject(footer, renderDimensions.footer);
       return container;
     }
 
@@ -612,19 +494,19 @@ var PdfBuilder = (function() {
     };
 
     this.header = function(nwHeader) {
-      var tmpHeader = createHTMLObject(nwHeader);
+      var tmpHeader = Html.createHTMLObject(nwHeader);
       if (tmpHeader) {
         header = tmpHeader;
-        ensureValidHTMLObject(header);
+        Html.ensureValidHTMLObject(header, PrintPdf);
       }
       return that;
     }
 
     this.footer = function(nwFooter) {
-      var tmpFooter = createHTMLObject(nwFooter);
+      var tmpFooter = Html.createHTMLObject(nwFooter);
       if (tmpFooter) {
         footer = tmpFooter;
-        ensureValidHTMLObject(footer);
+        Html.ensureValidHTMLObject(footer, PrintPdf);
       }
       return that;
     }
