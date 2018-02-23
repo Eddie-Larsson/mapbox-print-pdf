@@ -105,8 +105,8 @@ var createDocumentContainer = function() {
 }
 
 var addHTMLObject = function(htmlObj, container, dimens) {
-  dimens = dimens.to(UNITS.Pixels);
   if(check.isObject(htmlObj) && check.isHTMLElement(htmlObj.html)) {
+    dimens = dimens.to(UNITS.Pixels);
     var htmlContainer = document.createElement('div');
     htmlContainer.style.width = dimens.width() + dimens.unit();
     htmlContainer.style.height = dimens.height() + dimens.unit();
