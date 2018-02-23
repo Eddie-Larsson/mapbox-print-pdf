@@ -67,6 +67,12 @@ var Dimens = (function() {
     return new Dimens(obj.width, obj.height, obj.unit);
   }
 
+  var _add = function(dimensOne, dimensTwo) {
+    dimensTwo = dimensTwo.to(dimensOne.unit());
+    return new Dimens(dimensOne.width() + dimensTwo.width(),
+    dimensOne.height() + dimensTwo.height(), dimensOne.unit());
+  }
+
   var _createPDFDimension = function(obj) {
     if(!isValidPDFUnit(obj.unit)) return null;
     if(obj instanceof Dimens) return obj;
@@ -108,6 +114,10 @@ var Dimens = (function() {
       return Dimens.subtractMargin(this, margin);
     }
 
+    this.add = function(toAdd) {
+      return _add(this, toAdd);
+    }
+
     this.width = function() {
       return width;
     }
@@ -123,6 +133,7 @@ var Dimens = (function() {
   constructor.createPDFDimension = _createPDFDimension;
   constructor.subtractMargin = _subtractMargin;
   constructor.to = _to;
+  constructor.add = _add;
   return constructor;
 })();
 

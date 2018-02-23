@@ -24,23 +24,7 @@
 var check = require("./type-check.js");
 
 var SUPPORTED_UNITS = ["px", "pt", "rem", "cm", "mm", "in", "pc"];
-var SCALE_PROPERTIES = [
-  "backgroundSize",
-  "borderWidth",
-  "margin", "padding",
-  "bottom", "top", "left", "right",
-  "columnGap",
-  "columnRuleWidth",
-  "columnWidth",
-  "flexBasis",
-  "fontSize", "lineHeight", "letterSpacing", "wordSpacing",
-  "minWidth", "minHeight", "maxHeight", "maxWidth",
-  "outlineWidth",
-  "textIndent"
-];
 var ATTR_SCALE_PROPS = "data-scale-props";
-var ATTR_SCALE_EXCLUDE_PROPS = "data-scale-exlude-props";
-var CLASS_SCALE_EXCLUDE = "_scale-exclude";
 var CLASS_SCALE_HALT = "_scale-halt";
 var CLASS_SCALE_CUSTOM = "_scale-custom";
 var UNITS_REGEX = makePropertyRegex(SUPPORTED_UNITS);
@@ -132,43 +116,40 @@ function getStyle(elem) {
   }
 }
 
-function scaleSingleElement(element, scaleObj, newStyles) {
+function scaleSingleElement(element, percent, newStyles) {
   var className = element.className;
-  if (className.indexOf(CLASS_SCALE_EXCLUDE) === -1) {
-    if (element.hasAttribute(ATTR_SCALE_PROPS)) scaleObj.properties = element.getAttribute(ATTR_SCALE_PROPS).split(" ");
-    if (element.hasAttribute(ATTR_SCALE_EXCLUDE_PROPS)) scaleObj.exclude = element.getAttribute(ATTR_SCALE_EXCLUDE_PROPS).split(" ");
+  if(!element.hasAttribute(ATTR_SCALE_PROPS)) return;
+    var properties = element.getAttribute(ATTR_SCALE_PROPS).split(" ");
     var style = getStyle(element);
     if (style) {
-      for (var i = 0; i < scaleObj.properties.length; ++i) {
-        var prop = scaleObj.properties[i];
-        if (scaleObj.exclude.indexOf(prop) !== -1) continue;
+      for (var i = 0; i < properties.length; ++i) {
+        var prop = properties[i];
         var propValue = style.snakeCase ? style.style.getPropertyValue(toSnakeCase(prop)) : style.style[prop];
         var scaleValue = StyleSize.fromString(propValue, UNITS_REGEX);
         if (scaleValue) newStyles.push({
           elem: element,
           prop: prop,
-          value: scaleValue.scale(scaleObj.percent()).toString()
-        })
+          value: scaleValue.scale(percent).toString()
+        });
       }
     }
-  }
 
 }
 
-function recursiveScale(element, handlers, scaleObj, newStyles) {
+function recursiveScale(element, handlers, percent, newStyles) {
   var className = element.className;
   if (className.indexOf(CLASS_SCALE_CUSTOM) !== -1) {
     var id = element.id;
     if (check.isFunction(handlers[id])) {
-      var tmpStyles = handlers[id](element, scaleObj.percent());
+      var tmpStyles = handlers[id](element, percent);
       if (check.isArray(tmpStyles)) newStyles.push.apply(newStyles, tmpStyles);
     }
   } else {
-    scaleSingleElement(element, scaleObj, newStyles);
+    scaleSingleElement(element, percent, newStyles);
   }
   if (className.indexOf(CLASS_SCALE_HALT) !== -1) return;
   for (var i = 0; i < element.children.length; ++i) {
-    recursiveScale(element.children[i], handlers, scaleObj, newStyles);
+    recursiveScale(element.children[i], handlers, percent, newStyles);
   }
 }
 
@@ -184,7 +165,7 @@ function scaleElement(element, handlers, percent) {
   if (Math.round(percent * 100) == 100) return;
 
   var newStyles = [];
-  recursiveScale(element, handlers, new Scaling(percent, SCALE_PROPERTIES, []), newStyles);
+  recursiveScale(element, handlers, percent, newStyles);
   applyStyles(newStyles);
 }
 

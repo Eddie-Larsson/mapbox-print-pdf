@@ -260,7 +260,7 @@ function waitForMapToRender(map, callback) {
         setTimeout(quiesce, QUIESCE_TIMEOUT);
       } else {
         map.off('render', renderListener);
-        resolve();
+        resolve(map);
       }
     }
     var renderListener = function() {
@@ -299,7 +299,7 @@ function replaceMapWithImage(map) {
 function calculateRenderSize(elements, mapDimens, innerFormat) {
   if(!check.isArray(elements)) return null;
   var _elements = [];
-  var mapPercent = 100;
+  var mapPercent = 1;
   var minHeight = mapDimens.height();
   var minWidth = mapDimens.width();
   for(var i = 0; i < elements.length; ++i) {
@@ -307,23 +307,25 @@ function calculateRenderSize(elements, mapDimens, innerFormat) {
     var element = elements[i];
     var min = element.min.to(mapDimens.unit());
     var max = element.max.to(mapDimens.unit());
+    var percent = element.heightPercent;
     _elements.push({
       min: min,
       max: max,
-      percent: element.heightPercent/100,
+      percent: percent,
+      original: element
     });
-    mapPercent -= element.heightPercent;
-    minHeight += min.height();
+    mapPercent -= percent;
+    var minWantedHeight = min.height() > 0 ? min.height()/percent : 0;
+    minHeight = minHeight < minWantedHeight ? minWantedHeight : minHeight;
     minWidth = minWidth < min.width() ? min.width() : minWidth;
   }
-  mapPercent /= 100;
   var mapMinHeight = mapDimens.height() / mapPercent;
   minHeight = minHeight < mapMinHeight ? mapMinHeight : minHeight;
   for(var i = 0; i < _elements.length; ++i) {
     var element = _elements[i];
     var height = element.percent*minHeight;
     if(height > element.max.height()) {
-      minHeight -= (height-element.max.height());
+      element.original.heightPercent = minHeight/element.max.height();
     }
   }
   var pageSize = new Dimens(minWidth, minHeight, mapDimens.unit());
@@ -332,16 +334,20 @@ function calculateRenderSize(elements, mapDimens, innerFormat) {
 
 function createSubdividedRenderSize(header, footer, renderSize) {
   var renderDimensions = {full: renderSize};
-  var headerPercent = check.isObject(header) ? header.heightPercent/100 : 0;
-  var footerPercent = check.isObject(footer) ? footer.heightPercent/100 : 0;
-  var mapPercent = 1 - headerPercent - footerPercent;
+  var footerPercent = check.isObject(footer) ? footer.heightPercent : 0;
+  var mapPercent = 1;
   if(check.isObject(header)) {
-    renderDimensions.header = new Dimens(renderSize.width(), renderSize.height()*headerPercent, renderSize.unit());
+    var height = renderSize.height()*header.heightPercent;
+    renderDimensions.header = new Dimens(renderSize.width(), height, renderSize.unit());
+    mapPercent -= header.heightPercent;
   }
   if(check.isObject(footer)) {
-    renderDimensions.footer = new Dimens(renderSize.width(), renderSize.height()*footerPercent, renderSize.unit());
+    var height = renderSize.height()*footerPercent;
+    renderDimensions.footer = new Dimens(renderSize.width(), height, renderSize.unit());
+    mapPercent -= footer.heightPercent;
   }
   renderDimensions.map = new Dimens(renderSize.width(), renderSize.height()*mapPercent, renderSize.unit());
+  renderDimensions.mapPercent = mapPercent;
 
   return renderDimensions;
 }
@@ -430,34 +436,37 @@ var PdfBuilder = (function() {
 
       var renderFormat = getRenderFormat(format, orientation, margins);
       var renderSize = calculateRenderSize([header, footer],
-        new Dimens(map._container.scrollWidth, map._container.scrollHeight, UNITS.Pixels), renderFormat);
-      renderDimensions = createSubdividedRenderSize(header, footer, renderSize);
+        new Dimens(0, 0, UNITS.Pixels),
+        renderFormat).to(UNITS.Pixels);
+      var renderDimensions = createSubdividedRenderSize(header, footer, renderSize);
       htmlDoc = Html.createDocumentContainer();
       Html.addHTMLObject(header, htmlDoc, renderDimensions.header);
       var container = Html.createMapContainer(htmlDoc, renderDimensions.map);
       Html.addHTMLObject(footer, htmlDoc, renderDimensions.footer);
-      _adjustDPI(renderDimensions.map, map);
 
-      Html.scaleHTMLObject(header, renderDimensions.header);
-      Html.scaleHTMLObject(footer, renderDimensions.footer);
+      _adjustDPI(renderDimensions.map, map);
       return container;
     }
 
     var _createPrintMap = function(map, mapboxgl, container) {
-      var renderMap = new mapboxgl.Map({
-        container: container,
-        center: map.getCenter(),
-        zoom: map.getZoom(),
-        style: map.getStyle(),
-        bearing: map.getBearing(),
-        pitch: map.getPitch(),
-        interactive: false,
-        attributionControl: false,
-        preserveDrawingBuffer: true
-      });
+      return new Promise(function(resolve) {
+        var renderMap = new mapboxgl.Map({
+          container: container,
+          center: map.getCenter(),
+          style: map.getStyle(),
+          bearing: map.getBearing(),
+          maxZoom: 24,
+          minBounds: map.getBounds(),
+          pitch: map.getPitch(),
+          interactive: false,
+          attributionControl: false,
+          preserveDrawingBuffer: true
+        });
+        addScale(renderMap, scale, mapboxgl);
+        renderMap.fitBounds(map.getBounds());
+        resolve(renderMap);
+      })
 
-      addScale(renderMap, scale, mapboxgl);
-      return renderMap;
     };
 
     this.format = function(nwFormat) {
@@ -547,11 +556,11 @@ var PdfBuilder = (function() {
           return;
         }
         var container = _createHTMLDocument(map);
-        var renderMap = _createPrintMap(map, mapboxgl, container);
-        waitForMapToRender(renderMap).then(function() {
-          _printMap(renderMap).then(resolve);
+         _createPrintMap(map, mapboxgl, container)
+         .then(waitForMapToRender)
+         .then(_printMap)
+         .then(resolve);
         });
-      });
     }
 
   };

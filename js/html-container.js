@@ -11,7 +11,7 @@ var scaleHTMLObject = function(htmlObject, newSize) {
   var scaling = htmlObject.scaling;
   if(!check.isObject(scaling) || !(scaling.baseLine instanceof Dimens)) return;
   var percent = 0;
-  var baseLine = scaling.baseLine;
+  var baseLine = new Dimens(scaling.baseLine.width(), scaling.baseLine.height()*htmlObject.heightPercent, scaling.baseLine.unit());
   newSize = newSize.to(baseLine.unit());
   if(scaling.widthAndHeight) {
     percent = (newSize.width() + newSize.height())/(baseLine.width() + baseLine.height());
@@ -31,6 +31,7 @@ var ensureValidHTMLObject = function(obj, printPDF) {
   obj.max = Dimens.toDimension(obj.max);
 
   if(!check.isNumber(obj.heightPercent) || obj.heightPercent < 0 || obj.heightPercent >= 100) obj.heightPercent = 5;
+  if(obj.heightPercent > 1) obj.heightPercent /= 100;
   if(check.isObject(obj.scaling)) {
     var scaling = createScalingObject(obj.scaling, printPDF);
     if(!scaling) {
@@ -111,6 +112,7 @@ var addHTMLObject = function(htmlObj, container, dimens) {
     htmlContainer.style.height = dimens.height() + dimens.unit();
     htmlContainer.appendChild(htmlObj.html);
     container.appendChild(htmlContainer);
+    scaleHTMLObject(htmlObj, dimens);
   }
   return htmlObj;
 }
@@ -120,7 +122,6 @@ var createMapContainer = function(container, dimens) {
   dimens = dimens.to(UNITS.Pixels);
   mapContainer.style.width = dimens.width() + dimens.unit();
   mapContainer.style.height = dimens.height() + dimens.unit();
-  mapContainer.style.backgroundColor = "red";
   container.appendChild(mapContainer);
   return mapContainer;
 }
