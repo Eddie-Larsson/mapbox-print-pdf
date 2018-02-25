@@ -6,6 +6,7 @@
   "scripts": {
     "start": "watchify-server docs/js/index.js --port 8000 --index index.html --dir docs",
     "watch-dev": "watchify docs/js/index.js -v -o docs/build/bundle.js",
+    "build-demo": "browserify docs/js/index.js -o docs/build/bundle.js",
     "build": "browserify -g uglifyify js/mapbox-print-pdf.js -o dist/mapbox-print-pdf.min.js",
     "prepublish": "npm run build"
   },

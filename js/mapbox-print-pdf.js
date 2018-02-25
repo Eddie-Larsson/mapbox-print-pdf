@@ -151,7 +151,6 @@ var PdfBuilder = (function() {
       var renderDimensions = subdivideRenderFormat(header, footer, renderFormat);
       htmlDoc = Html.createDocumentContainer(renderDimensions.full);
       Html.addHTMLObject(header, htmlDoc, renderDimensions.header);
-      console.log(renderDimensions.map.toString());
       var container = Html.createMapContainer(htmlDoc, renderDimensions.map);
       Html.addHTMLObject(footer, htmlDoc, renderDimensions.footer);
 

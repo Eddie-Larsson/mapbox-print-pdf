@@ -10,19 +10,13 @@ function setFormat(builder) {
 }
 
 function setDPI(builder) {
-  try {
     var dpi = parseInt(($("#dpiInp").val()));
     if(!isNaN(dpi) && dpi > 0) builder.dpi(dpi);
-  } catch(e) {
-  }
 }
 
 function setOrientation(builder) {
-  try {
     var orientation = $("#orientationInp").val();
     if(orientation === "l") builder.landscape();
-  } catch(e) {
-  }
 }
 
 function setHeader(builder) {
@@ -37,7 +31,7 @@ function setHeader(builder) {
     builder.header({
       html: header,
       height: {
-        height: height,
+        value: height,
         unit: heightUnit
       },
       baseline: {
@@ -59,7 +53,7 @@ function setFooter(builder) {
   builder.footer({
     html: footer,
     height: {
-      height: height,
+      value: height,
       unit: heightUnit
     },
     baseline: {
@@ -70,14 +64,10 @@ function setFooter(builder) {
 }
 
 function setScaleControl(builder) {
-  try {
     var maxWidth = parseInt($("#scaleMaxWidthInp").val());
     if(isNaN(maxWidth) || maxWidth <= 0) return;
     var unit = $("#scaleUnitInp").val();
     builder.scale({maxWidthPercent: maxWidth, unit: unit});
-  } catch(e) {
-
-  }
 }
 
 function getMargin(id) {

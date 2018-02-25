@@ -34,7 +34,7 @@ function toSnakeCase(str) {
   return str.replace(/([A-Z])/g, "-$1").toLowerCase();
 }
 
-function toCamelCase(string) {
+function toCamelCase(str) {
   return str.replace(/-([a-z])/g, function (match) {
     return match[1].toUpperCase();
   });

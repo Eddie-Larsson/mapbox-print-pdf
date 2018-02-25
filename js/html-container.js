@@ -40,14 +40,28 @@ var HtmlObject = (function() {
   constructor.from = function(obj, formatConfig) {
     if(!obj.hasOwnProperty("html")
     || !obj.hasOwnProperty("height")
-    || !obj.hasOwnProperty("baseline")) return null;
+    || !obj.hasOwnProperty("baseline")) {
+      console.error("Missing a required property in the html object");
+      return null;
+    }
     var html = createOrReturnHTML(obj.html);
-
-    if(html === null) return null;
+    if(html === null) {
+      console.error("Html property couldn't be parsed to an html object");
+      console.error(obj.html)
+      return null;
+    }
     var height = Size.from(obj.height);
-    if(height === null) return null;
+    if(height === null) {
+      console.error("Couldn't parse the height property of the html object");
+      console.error(obj.height)
+      return null;
+    }
     var baseline = _getBaseline(obj.baseline, formatConfig);
-    if(baseline === null) return null;
+    if(baseline === null) {
+      console.error("Couldn't parse the baseline property of the html object");
+      console.error(obj.baseline);
+      return null;
+    }
     return new HtmlObject(html, height, baseline);
   }
   return constructor;

@@ -11,19 +11,13 @@ function setFormat(builder) {
 }
 
 function setDPI(builder) {
-  try {
     var dpi = parseInt(($("#dpiInp").val()));
     if(!isNaN(dpi) && dpi > 0) builder.dpi(dpi);
-  } catch(e) {
-  }
 }
 
 function setOrientation(builder) {
-  try {
     var orientation = $("#orientationInp").val();
     if(orientation === "l") builder.landscape();
-  } catch(e) {
-  }
 }
 
 function setHeader(builder) {
@@ -38,7 +32,7 @@ function setHeader(builder) {
     builder.header({
       html: header,
       height: {
-        height: height,
+        value: height,
         unit: heightUnit
       },
       baseline: {
@@ -60,7 +54,7 @@ function setFooter(builder) {
   builder.footer({
     html: footer,
     height: {
-      height: height,
+      value: height,
       unit: heightUnit
     },
     baseline: {
@@ -71,14 +65,10 @@ function setFooter(builder) {
 }
 
 function setScaleControl(builder) {
-  try {
     var maxWidth = parseInt($("#scaleMaxWidthInp").val());
     if(isNaN(maxWidth) || maxWidth <= 0) return;
     var unit = $("#scaleUnitInp").val();
     builder.scale({maxWidthPercent: maxWidth, unit: unit});
-  } catch(e) {
-
-  }
 }
 
 function getMargin(id) {
@@ -545,14 +535,28 @@ var HtmlObject = (function() {
   constructor.from = function(obj, formatConfig) {
     if(!obj.hasOwnProperty("html")
     || !obj.hasOwnProperty("height")
-    || !obj.hasOwnProperty("baseline")) return null;
+    || !obj.hasOwnProperty("baseline")) {
+      console.error("Missing a required property in the html object");
+      return null;
+    }
     var html = createOrReturnHTML(obj.html);
-
-    if(html === null) return null;
+    if(html === null) {
+      console.error("Html property couldn't be parsed to an html object");
+      console.error(obj.html)
+      return null;
+    }
     var height = Size.from(obj.height);
-    if(height === null) return null;
+    if(height === null) {
+      console.error("Couldn't parse the height property of the html object");
+      console.error(obj.height)
+      return null;
+    }
     var baseline = _getBaseline(obj.baseline, formatConfig);
-    if(baseline === null) return null;
+    if(baseline === null) {
+      console.error("Couldn't parse the baseline property of the html object");
+      console.error(obj.baseline);
+      return null;
+    }
     return new HtmlObject(html, height, baseline);
   }
   return constructor;
@@ -882,7 +886,6 @@ var PdfBuilder = (function() {
       var renderDimensions = subdivideRenderFormat(header, footer, renderFormat);
       htmlDoc = Html.createDocumentContainer(renderDimensions.full);
       Html.addHTMLObject(header, htmlDoc, renderDimensions.header);
-      console.log(renderDimensions.map.toString());
       var container = Html.createMapContainer(htmlDoc, renderDimensions.map);
       Html.addHTMLObject(footer, htmlDoc, renderDimensions.footer);
 
@@ -1027,7 +1030,7 @@ function toSnakeCase(str) {
   return str.replace(/([A-Z])/g, "-$1").toLowerCase();
 }
 
-function toCamelCase(string) {
+function toCamelCase(str) {
   return str.replace(/-([a-z])/g, function (match) {
     return match[1].toUpperCase();
   });
