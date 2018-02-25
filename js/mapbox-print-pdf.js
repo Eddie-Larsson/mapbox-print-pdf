@@ -195,7 +195,7 @@ var PdfBuilder = (function() {
       var tmpHeader = HtmlObject.from(nwHeader, FormatConfig);
       if (tmpHeader) {
         header = tmpHeader;
-        if(check.isFunction(elemCallback)) elemCallback(header.html);
+        if(check.isFunction(elemCallback)) elemCallback(header.html());
       }
       return that;
     }
@@ -204,7 +204,7 @@ var PdfBuilder = (function() {
       var tmpFooter = HtmlObject.from(nwFooter, FormatConfig);
       if (tmpFooter) {
         footer = tmpFooter;
-        if(check.isFunction(elemCallback)) elemCallback(footer.html);
+        if(check.isFunction(elemCallback)) elemCallback(footer.html());
       }
       return that;
     }
