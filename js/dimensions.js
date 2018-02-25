@@ -233,6 +233,7 @@ var Size = function(value, unit) {
     }
 }
 Size.from = function(obj, valueProp) {
+  valueProp = valueProp ? valueProp : "value";
   if(!obj.hasOwnProperty(valueProp) || !obj.hasOwnProperty("unit")) return null;
   if(!check.isNumber(obj[valueProp]) || obj[valueProp] < 0 || UNITS.Enumerated.indexOf(obj.unit) == -1) return null;
   return new Size(obj[valueProp], obj.unit);

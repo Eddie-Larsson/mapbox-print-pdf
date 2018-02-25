@@ -373,6 +373,7 @@ var Size = function(value, unit) {
     }
 }
 Size.from = function(obj, valueProp) {
+  valueProp = valueProp ? valueProp : "value";
   if(!obj.hasOwnProperty(valueProp) || !obj.hasOwnProperty("unit")) return null;
   if(!check.isNumber(obj[valueProp]) || obj[valueProp] < 0 || UNITS.Enumerated.indexOf(obj.unit) == -1) return null;
   return new Size(obj[valueProp], obj.unit);
@@ -548,7 +549,7 @@ var HtmlObject = (function() {
     var html = createOrReturnHTML(obj.html);
 
     if(html === null) return null;
-    var height = Size.from(obj.height, "height");
+    var height = Size.from(obj.height);
     if(height === null) return null;
     var baseline = _getBaseline(obj.baseline, formatConfig);
     if(baseline === null) return null;
@@ -1019,6 +1020,7 @@ var SUPPORTED_UNITS = ["px", "pt", "rem", "cm", "mm", "in", "pc"];
 var ATTR_SCALE_WIDTH = "data-scale-width";
 var ATTR_SCALE_HEIGHT = "data-scale-height";
 var ATTR_SCALE_SUM = "data-scale-sum";
+var ATTR_HANDLER = "data-scale-handler";
 var UNITS_REGEX = makePropertyRegex(SUPPORTED_UNITS);
 
 function toSnakeCase(str) {
@@ -1140,9 +1142,9 @@ function scaleByAttribute(element, attr, percent, newStyles) {
 
 function recursiveScale(element, handlers, scalingObj, newStyles) {
   var className = element.className;
-  if (handlers.hasOwnProperty(element.id)) {
-    var id = element.id;
-    if (check.isFunction(handlers[id])) {
+  if (element.hasAttribute(ATTR_HANDLER)) {
+    var handler = element.getAttribute(ATTR_HANDLER);
+    if (handlers.hasOwnProperty(handler) && check.isFunction(handlers[id])) {
       var tmpStyles = handlers[id](element, scalingObj);
       if (check.isArray(tmpStyles)) newStyles.push.apply(newStyles, tmpStyles);
     }

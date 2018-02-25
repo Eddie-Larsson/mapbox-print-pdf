@@ -44,7 +44,7 @@ var HtmlObject = (function() {
     var html = createOrReturnHTML(obj.html);
 
     if(html === null) return null;
-    var height = Size.from(obj.height, "height");
+    var height = Size.from(obj.height);
     if(height === null) return null;
     var baseline = _getBaseline(obj.baseline, formatConfig);
     if(baseline === null) return null;

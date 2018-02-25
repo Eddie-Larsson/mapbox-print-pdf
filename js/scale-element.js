@@ -27,6 +27,7 @@ var SUPPORTED_UNITS = ["px", "pt", "rem", "cm", "mm", "in", "pc"];
 var ATTR_SCALE_WIDTH = "data-scale-width";
 var ATTR_SCALE_HEIGHT = "data-scale-height";
 var ATTR_SCALE_SUM = "data-scale-sum";
+var ATTR_HANDLER = "data-scale-handler";
 var UNITS_REGEX = makePropertyRegex(SUPPORTED_UNITS);
 
 function toSnakeCase(str) {
@@ -148,9 +149,9 @@ function scaleByAttribute(element, attr, percent, newStyles) {
 
 function recursiveScale(element, handlers, scalingObj, newStyles) {
   var className = element.className;
-  if (handlers.hasOwnProperty(element.id)) {
-    var id = element.id;
-    if (check.isFunction(handlers[id])) {
+  if (element.hasAttribute(ATTR_HANDLER)) {
+    var handler = element.getAttribute(ATTR_HANDLER);
+    if (handlers.hasOwnProperty(handler) && check.isFunction(handlers[id])) {
       var tmpStyles = handlers[id](element, scalingObj);
       if (check.isArray(tmpStyles)) newStyles.push.apply(newStyles, tmpStyles);
     }
