@@ -3,7 +3,7 @@ var mapboxgl = require('mapbox-gl');
 var mapPrint = require("../../js/mapbox-print-pdf.js");
 var map;
 
-mapboxgl.accessToken = "pk.eyJ1IjoiZWRkaWVsYSIsImEiOiJjamUwbjFkMHQwMXJqMzRxcG9yN2xtZWZxIn0.6hdbZuqt2ZPSXuw9Ybfa8w"
+mapboxgl.accessToken = "pk.eyJ1IjoiZGVtb2FjY291bnQxMiIsImEiOiJjamUzZTQwMTIyNmQyMzRvNm53NDJ4emdmIn0.4MH5FDzsJT37L2GFZxUIjw"
 
 function setFormat(builder) {
     var format = $("#formatInp").val();
