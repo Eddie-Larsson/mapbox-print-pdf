@@ -31,7 +31,7 @@ var UNITS = {
 }
 UNITS.Enumerated = [UNITS.Points, UNITS.Pixels, UNITS.Inches, UNITS.Millimeters, UNITS.Centimeters];
 
-var SCALE_UNITS = ["metric", "imperial", "nautical"];
+
 
 function isValidPDFUnit(value) {
   return check.isString(value) && value !== UNITS.Pixels && UNITS.Enumerated.indexOf(value) !== -1;
@@ -61,6 +61,11 @@ var Dimens = (function() {
     return true;
   }
 
+  var _isValidPdfDimensionObject = function(obj) {
+    if(!_isValidDimensionObject(obj) || !isValidPDFUnit(obj.unit)) return false;
+    return true;
+  }
+
   var _toDimension = function(obj) {
     if(obj instanceof Dimens) return obj;
     if (!_isValidDimensionObject(obj)) return null;
@@ -73,11 +78,9 @@ var Dimens = (function() {
     dimensOne.height() + dimensTwo.height(), dimensOne.unit());
   }
 
-  var _createPDFDimension = function(obj) {
-    if(!isValidPDFUnit(obj.unit)) return null;
+  var _toPdfDimension = function(obj) {
+    if(!_isValidPdfDimensionObject) return null;
     if(obj instanceof Dimens) return obj;
-    if (!_isValidDimensionObject(obj)) return null;
-
     return new Dimens(obj.width, obj.height, obj.unit);
   }
 
@@ -118,6 +121,14 @@ var Dimens = (function() {
       return _add(this, toAdd);
     }
 
+    this.area = function() {
+      return width*height;
+    }
+
+    this.sum = function() {
+      return width+height;
+    }
+
     this.width = function() {
       return width;
     }
@@ -130,20 +141,24 @@ var Dimens = (function() {
   }
   constructor.isValidDimensionObject = _isValidDimensionObject;
   constructor.toDimension = _toDimension;
-  constructor.createPDFDimension = _createPDFDimension;
+  constructor.toPdfDimension = _toPdfDimension;
   constructor.subtractMargin = _subtractMargin;
   constructor.to = _to;
   constructor.add = _add;
+  constructor.isValidPdfDimensionObject = _isValidPdfDimensionObject;
   return constructor;
 })();
 
 var Margin = (function() {
 
   var _isValidMargin = function(margin) {
+
     if (check.isNumber(margin) && margin >= 0) return true;
+
     if (!check.isObject(margin)) return false;
     if (!margin.hasOwnProperty("top") || !margin.hasOwnProperty("bottom") ||
-      !margin.hasOwnProperty("right") || !!margin.hasOwnProperty("left")) return false;
+      !margin.hasOwnProperty("right") || !margin.hasOwnProperty("left")) return false;
+
     if ((!check.isNumber(margin.top) || margin.top < 0) ||
       (!check.isNumber(margin.bottom) || margin.bottom < 0) ||
       (!check.isNumber(margin.left) || margin.left < 0) ||
@@ -153,7 +168,9 @@ var Margin = (function() {
   }
   var _createPDFMargin = function(margin, unit) {
     if (!isValidPDFUnit(unit) || !_isValidMargin(margin)) return null;
+
     if (check.isNumber(margin)) {
+
       return new Margin({
         top: margin,
         left: margin,
@@ -161,7 +178,10 @@ var Margin = (function() {
         bottom: margin
       }, unit);
     } else {
-      return new Margin(margin, unit);
+
+      var marg = new Margin(margin, unit);
+
+      return marg;
     }
   }
   var constructor = function(margins, unit) {
@@ -198,25 +218,30 @@ var Margin = (function() {
 
   constructor.createPDFMargin = _createPDFMargin;
   return constructor;
-})()
+})();
 
 var Size = function(value, unit) {
-  this.to = function(toUnit) {
-    return new Size(Dimens.to(value, unit, toUnit), toUnit);
-  }
+    this.to = function(toUnit) {
+      return new Size(Dimens.to(value, unit, toUnit), toUnit);
+    }
 
-  this.value = function() {
-    return value;
-  }
-  this.unit = function() {
-    return unit;
-  }
+    this.value = function() {
+      return value;
+    }
+    this.unit = function() {
+      return unit;
+    }
 }
+Size.from = function(obj, valueProp) {
+  if(!obj.hasOwnProperty(valueProp) || !obj.hasOwnProperty("unit")) return null;
+  if(!check.isNumber(obj[valueProp]) || obj[valueProp] < 0 || UNITS.Enumerated.indexOf(obj.unit) == -1) return null;
+  return new Size(obj[valueProp], obj.unit);
+};
+
 
 module.exports = {
   Dimens: Dimens,
   Margin: Margin,
   Size: Size,
-  UNITS: UNITS,
-  SCALE_UNITS: SCALE_UNITS
+  UNITS: UNITS
 }
