@@ -8,7 +8,7 @@
     "watch-dev": "watchify docs/js/index.js -v -o docs/build/bundle.js",
     "build-demo": "browserify docs/js/index.js -o docs/build/bundle.js",
     "build": "browserify -g uglifyify js/mapbox-print-pdf.js -o dist/mapbox-print-pdf.min.js",
-    "prepublish": "npm run build"
+    "prepublishOnly": "npm run build"
   },
   "repository": {
     "type": "git",

@@ -47,7 +47,7 @@ var HtmlObject = (function() {
     var html = createOrReturnHTML(obj.html);
     if(html === null) {
       console.error("Html property couldn't be parsed to an html object");
-      console.error(obj.html)
+      console.error(obj.baseline)
       return null;
     }
     var height = Size.from(obj.height);
