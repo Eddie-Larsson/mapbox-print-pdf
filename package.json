@@ -1,6 +1,6 @@
 {
   "name": "mapbox-print-pdf",
-  "version": "0.3.3",
+  "version": "0.3.4",
   "description": "A library for printing mapbox maps as pdfs",
   "main": "js/mapbox-print-pdf.js",
   "scripts": {
