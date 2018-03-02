@@ -36,6 +36,11 @@
   },
   "devDependencies": {
     "browserify": "^16.1.0",
+    "eslint-config-standard": "^11.0.0",
+    "eslint-plugin-import": "^2.9.0",
+    "eslint-plugin-node": "^6.0.1",
+    "eslint-plugin-promise": "^3.6.0",
+    "eslint-plugin-standard": "^3.0.1",
     "mapbox-gl": "^0.44.1",
     "uglifyify": "^4.0.5",
     "watchify": "^3.10.0",

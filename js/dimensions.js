@@ -37,13 +37,13 @@ function isValidPDFUnit(value) {
   return check.isString(value) && value !== UNITS.Pixels && UNITS.Enumerated.indexOf(value) !== -1;
 }
 
-var Dimens = (function() {
+var Dimens = (function () {
   var IN_TO_CM = 2.54;
   var IN_TO_MM = 10 * IN_TO_CM;
   var IN_TO_PT = 72;
   var IN_TO_PX = 96;
 
-  var _toInches = function(value, unit) {
+  var _toInches = function (value, unit) {
     if (unit === UNITS.Inches) return value;
     if (unit === UNITS.Centimeters) return value / IN_TO_CM;
     if (unit === UNITS.Millimeters) return value / IN_TO_MM;
@@ -53,7 +53,7 @@ var Dimens = (function() {
     return -1;
   }
 
-  var _isValidDimensionObject = function(obj) {
+  var _isValidDimensionObject = function (obj) {
     if (!check.isObject(obj)) return false;
     if (!obj.hasOwnProperty("width") || !obj.hasOwnProperty("height") || !obj.hasOwnProperty("unit")) return false;
     if (!check.isNumber(obj.width) || !check.isNumber(obj.height) || !check.isString(obj.unit)) return false;
@@ -61,36 +61,36 @@ var Dimens = (function() {
     return true;
   }
 
-  var _isValidPdfDimensionObject = function(obj) {
-    if(!_isValidDimensionObject(obj) || !isValidPDFUnit(obj.unit)) return false;
+  var _isValidPdfDimensionObject = function (obj) {
+    if (!_isValidDimensionObject(obj) || !isValidPDFUnit(obj.unit)) return false;
     return true;
   }
 
-  var _toDimension = function(obj) {
-    if(obj instanceof Dimens) return obj;
+  var _toDimension = function (obj) {
+    if (obj instanceof Dimens) return obj;
     if (!_isValidDimensionObject(obj)) return null;
     return new Dimens(obj.width, obj.height, obj.unit);
   }
 
-  var _add = function(dimensOne, dimensTwo) {
+  var _add = function (dimensOne, dimensTwo) {
     dimensTwo = dimensTwo.to(dimensOne.unit());
     return new Dimens(dimensOne.width() + dimensTwo.width(),
-    dimensOne.height() + dimensTwo.height(), dimensOne.unit());
+      dimensOne.height() + dimensTwo.height(), dimensOne.unit());
   }
 
-  var _toPdfDimension = function(obj) {
-    if(!_isValidPdfDimensionObject) return null;
-    if(obj instanceof Dimens) return obj;
+  var _toPdfDimension = function (obj) {
+    if (!_isValidPdfDimensionObject) return null;
+    if (obj instanceof Dimens) return obj;
     return new Dimens(obj.width, obj.height, obj.unit);
   }
 
 
-  var _subtractMargin = function(dimensions, margins) {
+  var _subtractMargin = function (dimensions, margins) {
     var convMargins = margins.to(dimensions.unit());
     return new Dimens(dimensions.width() - margins.left() - margins.right(),
       dimensions.height() - margins.top() - margins.bottom(), dimensions.unit());
   }
-  var _to = function(value, unitFrom, unitTo) {
+  var _to = function (value, unitFrom, unitTo) {
     if (unitFrom === unitTo) return value;
 
     value = _toInches(value, unitFrom);
@@ -104,38 +104,38 @@ var Dimens = (function() {
     console.error("Unrecognized unit: " + unitTo);
     return -1;
   };
-  var constructor = function(width, height, unit) {
-    this.to = function(unitTo) {
+  var constructor = function (width, height, unit) {
+    this.to = function (unitTo) {
       return new Dimens(Dimens.to(width, unit, unitTo), Dimens.to(height, unit, unitTo), unitTo);
     };
 
-    this.toString = function() {
+    this.toString = function () {
       return "width: " + width + unit + "; height: " + height + unit + ";";
     };
 
-    this.subtractMargin = function(margin) {
+    this.subtractMargin = function (margin) {
       return Dimens.subtractMargin(this, margin);
     }
 
-    this.add = function(toAdd) {
+    this.add = function (toAdd) {
       return _add(this, toAdd);
     }
 
-    this.area = function() {
-      return width*height;
+    this.area = function () {
+      return width * height;
     }
 
-    this.sum = function() {
-      return width+height;
+    this.sum = function () {
+      return width + height;
     }
 
-    this.width = function() {
+    this.width = function () {
       return width;
     }
-    this.height = function() {
+    this.height = function () {
       return height;
     }
-    this.unit = function() {
+    this.unit = function () {
       return unit;
     }
   }
@@ -149,9 +149,9 @@ var Dimens = (function() {
   return constructor;
 })();
 
-var Margin = (function() {
+var Margin = (function () {
 
-  var _isValidMargin = function(margin) {
+  var _isValidMargin = function (margin) {
 
     if (check.isNumber(margin) && margin >= 0) return true;
 
@@ -166,7 +166,7 @@ var Margin = (function() {
 
     return true;
   }
-  var _createPDFMargin = function(margin, unit) {
+  var _createPDFMargin = function (margin, unit) {
     if (!isValidPDFUnit(unit) || !_isValidMargin(margin)) return null;
 
     if (check.isNumber(margin)) {
@@ -184,13 +184,13 @@ var Margin = (function() {
       return marg;
     }
   }
-  var constructor = function(margins, unit) {
+  var constructor = function (margins, unit) {
     var right = margins.right;
     var left = margins.left;
     var top = margins.top;
     var bottom = margins.bottom;
 
-    this.to = function(toUnit) {
+    this.to = function (toUnit) {
       return new Margin({
         right: Dimens.to(right, unit, toUnit),
         left: Dimens.to(left, unit, toUnit),
@@ -199,19 +199,19 @@ var Margin = (function() {
       }, toUnit)
     };
 
-    this.top = function() {
+    this.top = function () {
       return top;
     }
-    this.left = function() {
+    this.left = function () {
       return left;
     }
-    this.right = function() {
+    this.right = function () {
       return right;
     }
-    this.bottom = function() {
+    this.bottom = function () {
       return bottom;
     }
-    this.toArray = function() {
+    this.toArray = function () {
       return [top, left, bottom, right];
     }
   }
@@ -220,22 +220,22 @@ var Margin = (function() {
   return constructor;
 })();
 
-var Size = function(value, unit) {
-    this.to = function(toUnit) {
-      return new Size(Dimens.to(value, unit, toUnit), toUnit);
-    }
+var Size = function (value, unit) {
+  this.to = function (toUnit) {
+    return new Size(Dimens.to(value, unit, toUnit), toUnit);
+  }
 
-    this.value = function() {
-      return value;
-    }
-    this.unit = function() {
-      return unit;
-    }
+  this.value = function () {
+    return value;
+  }
+  this.unit = function () {
+    return unit;
+  }
 }
-Size.from = function(obj, valueProp) {
+Size.from = function (obj, valueProp) {
   valueProp = valueProp ? valueProp : "value";
-  if(!obj.hasOwnProperty(valueProp) || !obj.hasOwnProperty("unit")) return null;
-  if(!check.isNumber(obj[valueProp]) || obj[valueProp] < 0 || UNITS.Enumerated.indexOf(obj.unit) == -1) return null;
+  if (!obj.hasOwnProperty(valueProp) || !obj.hasOwnProperty("unit")) return null;
+  if (!check.isNumber(obj[valueProp]) || obj[valueProp] < 0 || UNITS.Enumerated.indexOf(obj.unit) == -1) return null;
   return new Size(obj[valueProp], obj.unit);
 };
 

@@ -97,8 +97,9 @@ function hideProgress() {
 }
 function printMap(e) {
   e.preventDefault();
-  $("#pdfContainer").innerHTML = "";
+  
   showProgress();
+  
   var builder = mapPrint.build();
   setFormat(builder);
   setDPI(builder);
@@ -107,6 +108,7 @@ function printMap(e) {
   setFooter(builder);
   setScaleControl(builder);
   setMargins(builder);
+  
   builder.print(map, mapboxgl)
   .then(displayPdf)
   .then(hideProgress);

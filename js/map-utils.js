@@ -47,8 +47,8 @@ function calculateMaximumDpi(size, map, dpi) {
 function waitForMapToRender(map) {
   var noneLoaded = false;
   var initial = true;
-  return new Promise(function(resolve, reject) {
-    var quiesce = function() {
+  return new Promise(function (resolve, reject) {
+    var quiesce = function () {
       if (!noneLoaded || (!map.loaded() || !map.isStyleLoaded() || !map.areTilesLoaded())) {
         noneLoaded = true;
         setTimeout(quiesce, QUIESCE_TIMEOUT);
@@ -57,7 +57,7 @@ function waitForMapToRender(map) {
         resolve(map);
       }
     }
-    var renderListener = function() {
+    var renderListener = function () {
       noneLoaded = false;
       if (initial && map.loaded() && map.isStyleLoaded() && map.areTilesLoaded()) {
         initial = false;
@@ -70,20 +70,26 @@ function waitForMapToRender(map) {
 }
 
 function addScale(map, scale, mapboxgl) {
-  return new Promise(function(resolve, reject) {
-    if (scale) {
-      map.addControl(new mapboxgl.ScaleControl({
-        maxWidth: scale.maxWidthPercent * map._container.scrollWidth,
-        unit: scale.unit
-      }));
-    }
-    resolve(map);
-  });
+  return new Promise(function (resolve, reject) {
 
+    try {
+      if (scale) {
+        map.addControl(new mapboxgl.ScaleControl({
+          maxWidth: scale.maxWidthPercent * map._container.scrollWidth,
+          unit: scale.unit
+        }));
+      }
+      resolve(map);
+    } catch (err) {
+      reject(err);
+    }
+  });
 }
 
 function createPrintMap(map, mapboxgl, container) {
-    return new Promise(function(resolve, reject) {
+  return new Promise(function (resolve, reject) {
+
+    try {
       var renderMap = new mapboxgl.Map({
         container: container,
         center: map.getCenter(),
@@ -97,9 +103,12 @@ function createPrintMap(map, mapboxgl, container) {
         preserveDrawingBuffer: true
       });
       renderMap.fitBounds(map.getBounds());
-      resolve(renderMap);
-    })
 
+      resolve(renderMap);
+    } catch (err) {
+      reject(err);
+    }
+  })
 }
 
 module.exports = {
