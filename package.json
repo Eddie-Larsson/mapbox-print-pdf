@@ -7,8 +7,7 @@
     "start": "watchify-server docs/js/index.js --port 8000 --index index.html --dir docs",
     "watch-dev": "watchify docs/js/index.js -v -o docs/build/bundle.js",
     "build-demo": "browserify docs/js/index.js -o docs/build/bundle.js",
-    "build": "browserify -g uglifyify js/mapbox-print-pdf.js -o dist/mapbox-print-pdf.min.js",
-    "prepublishOnly": "npm run build"
+    "build": "browserify -g uglifyify js/mapbox-print-pdf.js -o dist/mapbox-print-pdf.min.js"
   },
   "repository": {
     "type": "git",
@@ -21,7 +20,6 @@
     "high-resolution"
   ],
   "files": [
-    "dist",
     "js"
   ],
   "author": "Eddie Larsson",
@@ -36,11 +34,6 @@
   },
   "devDependencies": {
     "browserify": "^16.1.0",
-    "eslint-config-standard": "^11.0.0",
-    "eslint-plugin-import": "^2.9.0",
-    "eslint-plugin-node": "^6.0.1",
-    "eslint-plugin-promise": "^3.6.0",
-    "eslint-plugin-standard": "^3.0.1",
     "mapbox-gl": "^0.44.1",
     "uglifyify": "^4.0.5",
     "watchify": "^3.10.0",

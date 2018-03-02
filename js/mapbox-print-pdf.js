@@ -25,7 +25,6 @@
 var jsPDF = require('jspdf');
 var html2canvas = require('html2canvas');
 var check = require('./type-check.js');
-var scaleElement = require('./scale-element.js');
 var dimensions = require('./dimensions.js');
 var Html = require('./html-container.js');
 var FormatConfig = require('./format-config.js');
@@ -46,7 +45,6 @@ function getOrientedDimensions(dimensions, orientation) {
 
 function subdivideRenderFormat(header, footer, renderFormat) {
     var renderDimensions = {full: renderFormat};
-    var footerPercent = check.isObject(footer) ? footer.heightPercent : 0;
     var mapPercent = 1;
     if(header) {
         renderDimensions.header = new Dimens(renderFormat.width(), renderFormat.height()*header.heightPercent(), renderFormat.unit());
@@ -94,7 +92,7 @@ var PdfBuilder = (function() {
             });
         };
 
-        var _printMap = function(map) {
+        var _printMap = function() {
             return new Promise(function(resolve, reject) {
                 var dimensions = FormatConfig.getFormat(format);
                 var convMargins = margins.to(dimensions.unit());
@@ -109,14 +107,14 @@ var PdfBuilder = (function() {
                 var writeCanvasToPdf = function(canvas) {
                     var renderFormat = getRenderFormat(format, orientation, convMargins);
                     try {
-                    pdf.addImage(canvas, 'png', convMargins.left(), convMargins.top(),
-                        renderFormat.width(),
-                        renderFormat.height(), null, 'FAST');
+                        pdf.addImage(canvas, 'png', convMargins.left(), convMargins.top(),
+                            renderFormat.width(),
+                            renderFormat.height(), null, 'FAST');
                         resolve(pdf);
                     } catch(err) {
                         reject(err);
                     }
-                }
+                };
                 html2canvas(htmlDoc, {
                     letterRendering: true,
                     useCORS: true,
@@ -124,7 +122,7 @@ var PdfBuilder = (function() {
                     allowTaint: true
                 }).then(writeCanvasToPdf, reject);
             });
-        }
+        };
 
         var _decreaseDpiToValidValue = function(mapDimens, map) {
             mapDimens = mapDimens.to(UNITS.Pixels);
@@ -136,10 +134,11 @@ var PdfBuilder = (function() {
                 dpi = newDpi;
                 Object.defineProperty(window, 'devicePixelRatio', {
                     get: function() {
-                        return dpi / 96
+                        return dpi / 96;
                     }
                 });
-                hidden.parentNode.removeChild(hidden);
+                var hidden = htmlDoc.parentNode;
+                hidden.removeChild(hidden);
                 document.body.appendChild(hidden);
             }
         };
@@ -148,7 +147,7 @@ var PdfBuilder = (function() {
             actualPixelRatio = window.devicePixelRatio;
             Object.defineProperty(window, 'devicePixelRatio', {
                 get: function() {
-                    return dpi / 96
+                    return dpi / 96;
                 }
             });
 
@@ -161,7 +160,7 @@ var PdfBuilder = (function() {
 
             _decreaseDpiToValidValue(renderDimensions.map, map);
             return container;
-        }
+        };
 
         this.format = function(nwFormat) {
             if (check.isString(nwFormat) && FormatConfig.formatExists(nwFormat)) {
@@ -203,7 +202,7 @@ var PdfBuilder = (function() {
                 if(check.isFunction(elemCallback)) elemCallback(header.html());
             }
             return that;
-        }
+        };
 
         this.footer = function(nwFooter, elemCallback) {
             var tmpFooter = HtmlObject.from(nwFooter, FormatConfig);
@@ -212,7 +211,7 @@ var PdfBuilder = (function() {
                 if(check.isFunction(elemCallback)) elemCallback(footer.html());
             }
             return that;
-        }
+        };
 
 
         this.scale = function(nwScale) {
@@ -222,7 +221,7 @@ var PdfBuilder = (function() {
                 console.error('The given scale is invalid: ' + nwScale);
             }
             return that;
-        }
+        };
 
         this.margins = function(nwMargins, unit) {
             var tmpMargins = Margin.createPDFMargin(nwMargins, unit ? unit : UNITS.Millimeters);
@@ -232,11 +231,11 @@ var PdfBuilder = (function() {
                 console.error('The provided arguments are invalid: ' + nwMargins + ', ' + unit);
             }
             return that;
-        }
+        };
 
         var _waitForStyleToLoad = function(map) {
             var TIMEOUT = 100;
-            var maxWait = 2000;
+            var maxWait = 10000;
             var waited = -1*TIMEOUT;
 
             
@@ -245,17 +244,17 @@ var PdfBuilder = (function() {
                     if(map.isStyleLoaded()) {
                         resolve(map);
                     } else {
-                        waited += timeout;
-                        if(waited >= timeout) {
-                            reject(new Error("The maps style took too long to load."));
+                        waited += TIMEOUT;
+                        if(waited >= maxWait) {
+                            reject(new Error('The maps style took too long to load.'));
                         } else {
                             setTimeout(checkStyle, TIMEOUT);
                         }
                     }
-                }
+                };
                 checkStyle();
             });
-        }
+        };
         this.print = function(map, mapboxgl) {
             
             if (!map.isStyleLoaded()) {
@@ -272,24 +271,23 @@ var PdfBuilder = (function() {
                 
                 var afterRenderMapCreate = function(renderMap) {
                     return new Promise(function (res, rej) {
-                        ;
                         mapUtils.addScale(renderMap, scale, mapboxgl)
-                                .then(mapUtils.waitForMapToRender)
-                                .then(_printMap)
-                                .then(function(pdf) {
-                                    _cleanup(renderMap);
-                                    res(pdf);
-                                }, function(err) {
-                                    _cleanup(renderMap);
-                                    rej(err);
-                                })
+                            .then(mapUtils.waitForMapToRender)
+                            .then(_printMap)
+                            .then(function(pdf) {
+                                _cleanup(renderMap);
+                                res(pdf);
+                            }, function(err) {
+                                _cleanup(renderMap);
+                                rej(err);
+                            });
                     });
-                }
+                };
                 mapUtils.createPrintMap(map, mapboxgl, container)
                     .then(afterRenderMapCreate)
                     .then(resolve, reject);
             });
-        }
+        };
 
     };
     return constructor;
@@ -298,4 +296,4 @@ var PdfBuilder = (function() {
 module.exports = {
     formats: FormatConfig,
     build: function() { return new PdfBuilder(); }
-}
+};

@@ -152,232 +152,232 @@ $(function() {
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-var check = require("./type-check.js");
+var check = require('./type-check.js');
 
 var UNITS = {
-  Points: "pt",
-  Pixels: "px",
-  Inches: "in",
-  Millimeters: "mm",
-  Centimeters: "cm"
-}
+    Points: 'pt',
+    Pixels: 'px',
+    Inches: 'in',
+    Millimeters: 'mm',
+    Centimeters: 'cm'
+};
 UNITS.Enumerated = [UNITS.Points, UNITS.Pixels, UNITS.Inches, UNITS.Millimeters, UNITS.Centimeters];
 
 
 
 function isValidPDFUnit(value) {
-  return check.isString(value) && value !== UNITS.Pixels && UNITS.Enumerated.indexOf(value) !== -1;
+    return check.isString(value) && value !== UNITS.Pixels && UNITS.Enumerated.indexOf(value) !== -1;
 }
 
 var Dimens = (function () {
-  var IN_TO_CM = 2.54;
-  var IN_TO_MM = 10 * IN_TO_CM;
-  var IN_TO_PT = 72;
-  var IN_TO_PX = 96;
+    var IN_TO_CM = 2.54;
+    var IN_TO_MM = 10 * IN_TO_CM;
+    var IN_TO_PT = 72;
+    var IN_TO_PX = 96;
 
-  var _toInches = function (value, unit) {
-    if (unit === UNITS.Inches) return value;
-    if (unit === UNITS.Centimeters) return value / IN_TO_CM;
-    if (unit === UNITS.Millimeters) return value / IN_TO_MM;
-    if (unit === UNITS.Points) return value / IN_TO_PT;
-    if (unit === UNITS.Pixels) return value / IN_TO_PX;
-    console.error("Unrecognized unit: " + unit);
-    return -1;
-  }
-
-  var _isValidDimensionObject = function (obj) {
-    if (!check.isObject(obj)) return false;
-    if (!obj.hasOwnProperty("width") || !obj.hasOwnProperty("height") || !obj.hasOwnProperty("unit")) return false;
-    if (!check.isNumber(obj.width) || !check.isNumber(obj.height) || !check.isString(obj.unit)) return false;
-    if (obj.width < 0 || obj.height < 0 || UNITS.Enumerated.indexOf(obj.unit) == -1) return false;
-    return true;
-  }
-
-  var _isValidPdfDimensionObject = function (obj) {
-    if (!_isValidDimensionObject(obj) || !isValidPDFUnit(obj.unit)) return false;
-    return true;
-  }
-
-  var _toDimension = function (obj) {
-    if (obj instanceof Dimens) return obj;
-    if (!_isValidDimensionObject(obj)) return null;
-    return new Dimens(obj.width, obj.height, obj.unit);
-  }
-
-  var _add = function (dimensOne, dimensTwo) {
-    dimensTwo = dimensTwo.to(dimensOne.unit());
-    return new Dimens(dimensOne.width() + dimensTwo.width(),
-      dimensOne.height() + dimensTwo.height(), dimensOne.unit());
-  }
-
-  var _toPdfDimension = function (obj) {
-    if (!_isValidPdfDimensionObject) return null;
-    if (obj instanceof Dimens) return obj;
-    return new Dimens(obj.width, obj.height, obj.unit);
-  }
-
-
-  var _subtractMargin = function (dimensions, margins) {
-    var convMargins = margins.to(dimensions.unit());
-    return new Dimens(dimensions.width() - margins.left() - margins.right(),
-      dimensions.height() - margins.top() - margins.bottom(), dimensions.unit());
-  }
-  var _to = function (value, unitFrom, unitTo) {
-    if (unitFrom === unitTo) return value;
-
-    value = _toInches(value, unitFrom);
-    if (value === -1) return value;
-
-    if (unitTo === UNITS.Inches) return value;
-    if (unitTo === UNITS.Centimeters) return value * IN_TO_CM;
-    if (unitTo === UNITS.Millimeters) return value * IN_TO_MM;
-    if (unitTo === UNITS.Points) return value * IN_TO_PT;
-    if (unitTo === UNITS.Pixels) return value * IN_TO_PX;
-    console.error("Unrecognized unit: " + unitTo);
-    return -1;
-  };
-  var constructor = function (width, height, unit) {
-    this.to = function (unitTo) {
-      return new Dimens(Dimens.to(width, unit, unitTo), Dimens.to(height, unit, unitTo), unitTo);
+    var _toInches = function (value, unit) {
+        if (unit === UNITS.Inches) return value;
+        if (unit === UNITS.Centimeters) return value / IN_TO_CM;
+        if (unit === UNITS.Millimeters) return value / IN_TO_MM;
+        if (unit === UNITS.Points) return value / IN_TO_PT;
+        if (unit === UNITS.Pixels) return value / IN_TO_PX;
+        console.error('Unrecognized unit: ' + unit);
+        return -1;
     };
 
-    this.toString = function () {
-      return "width: " + width + unit + "; height: " + height + unit + ";";
+    var _isValidDimensionObject = function (obj) {
+        if (!check.isObject(obj)) return false;
+        if (!obj.hasOwnProperty('width') || !obj.hasOwnProperty('height') || !obj.hasOwnProperty('unit')) return false;
+        if (!check.isNumber(obj.width) || !check.isNumber(obj.height) || !check.isString(obj.unit)) return false;
+        if (obj.width < 0 || obj.height < 0 || UNITS.Enumerated.indexOf(obj.unit) == -1) return false;
+        return true;
     };
 
-    this.subtractMargin = function (margin) {
-      return Dimens.subtractMargin(this, margin);
-    }
+    var _isValidPdfDimensionObject = function (obj) {
+        if (!_isValidDimensionObject(obj) || !isValidPDFUnit(obj.unit)) return false;
+        return true;
+    };
 
-    this.add = function (toAdd) {
-      return _add(this, toAdd);
-    }
+    var _toDimension = function (obj) {
+        if (obj instanceof Dimens) return obj;
+        if (!_isValidDimensionObject(obj)) return null;
+        return new Dimens(obj.width, obj.height, obj.unit);
+    };
 
-    this.area = function () {
-      return width * height;
-    }
+    var _add = function (dimensOne, dimensTwo) {
+        dimensTwo = dimensTwo.to(dimensOne.unit());
+        return new Dimens(dimensOne.width() + dimensTwo.width(),
+            dimensOne.height() + dimensTwo.height(), dimensOne.unit());
+    };
 
-    this.sum = function () {
-      return width + height;
-    }
+    var _toPdfDimension = function (obj) {
+        if (!_isValidPdfDimensionObject) return null;
+        if (obj instanceof Dimens) return obj;
+        return new Dimens(obj.width, obj.height, obj.unit);
+    };
 
-    this.width = function () {
-      return width;
-    }
-    this.height = function () {
-      return height;
-    }
-    this.unit = function () {
-      return unit;
-    }
-  }
-  constructor.isValidDimensionObject = _isValidDimensionObject;
-  constructor.toDimension = _toDimension;
-  constructor.toPdfDimension = _toPdfDimension;
-  constructor.subtractMargin = _subtractMargin;
-  constructor.to = _to;
-  constructor.add = _add;
-  constructor.isValidPdfDimensionObject = _isValidPdfDimensionObject;
-  return constructor;
+
+    var _subtractMargin = function (dimensions, margins) {
+        var convMargins = margins.to(dimensions.unit());
+        return new Dimens(dimensions.width() - convMargins.left() - convMargins.right(),
+            dimensions.height() - convMargins.top() - convMargins.bottom(), dimensions.unit());
+    };
+    var _to = function (value, unitFrom, unitTo) {
+        if (unitFrom === unitTo) return value;
+
+        value = _toInches(value, unitFrom);
+        if (value === -1) return value;
+
+        if (unitTo === UNITS.Inches) return value;
+        if (unitTo === UNITS.Centimeters) return value * IN_TO_CM;
+        if (unitTo === UNITS.Millimeters) return value * IN_TO_MM;
+        if (unitTo === UNITS.Points) return value * IN_TO_PT;
+        if (unitTo === UNITS.Pixels) return value * IN_TO_PX;
+        console.error('Unrecognized unit: ' + unitTo);
+        return -1;
+    };
+    var constructor = function (width, height, unit) {
+        this.to = function (unitTo) {
+            return new Dimens(Dimens.to(width, unit, unitTo), Dimens.to(height, unit, unitTo), unitTo);
+        };
+
+        this.toString = function () {
+            return 'width: ' + width + unit + '; height: ' + height + unit + ';';
+        };
+
+        this.subtractMargin = function (margin) {
+            return Dimens.subtractMargin(this, margin);
+        };
+
+        this.add = function (toAdd) {
+            return _add(this, toAdd);
+        };
+
+        this.area = function () {
+            return width * height;
+        };
+
+        this.sum = function () {
+            return width + height;
+        };
+
+        this.width = function () {
+            return width;
+        };
+        this.height = function () {
+            return height;
+        };
+        this.unit = function () {
+            return unit;
+        };
+    };
+    constructor.isValidDimensionObject = _isValidDimensionObject;
+    constructor.toDimension = _toDimension;
+    constructor.toPdfDimension = _toPdfDimension;
+    constructor.subtractMargin = _subtractMargin;
+    constructor.to = _to;
+    constructor.add = _add;
+    constructor.isValidPdfDimensionObject = _isValidPdfDimensionObject;
+    return constructor;
 })();
 
 var Margin = (function () {
 
-  var _isValidMargin = function (margin) {
+    var _isValidMargin = function (margin) {
 
-    if (check.isNumber(margin) && margin >= 0) return true;
+        if (check.isNumber(margin) && margin >= 0) return true;
 
-    if (!check.isObject(margin)) return false;
-    if (!margin.hasOwnProperty("top") || !margin.hasOwnProperty("bottom") ||
-      !margin.hasOwnProperty("right") || !margin.hasOwnProperty("left")) return false;
+        if (!check.isObject(margin)) return false;
+        if (!margin.hasOwnProperty('top') || !margin.hasOwnProperty('bottom') ||
+      !margin.hasOwnProperty('right') || !margin.hasOwnProperty('left')) return false;
 
-    if ((!check.isNumber(margin.top) || margin.top < 0) ||
+        if ((!check.isNumber(margin.top) || margin.top < 0) ||
       (!check.isNumber(margin.bottom) || margin.bottom < 0) ||
       (!check.isNumber(margin.left) || margin.left < 0) ||
       (!check.isNumber(margin.right) || margin.right < 0)) return false;
 
-    return true;
-  }
-  var _createPDFMargin = function (margin, unit) {
-    if (!isValidPDFUnit(unit) || !_isValidMargin(margin)) return null;
+        return true;
+    };
+    var _createPDFMargin = function (margin, unit) {
+        if (!isValidPDFUnit(unit) || !_isValidMargin(margin)) return null;
 
-    if (check.isNumber(margin)) {
+        if (check.isNumber(margin)) {
 
-      return new Margin({
-        top: margin,
-        left: margin,
-        right: margin,
-        bottom: margin
-      }, unit);
-    } else {
+            return new Margin({
+                top: margin,
+                left: margin,
+                right: margin,
+                bottom: margin
+            }, unit);
+        } else {
 
-      var marg = new Margin(margin, unit);
+            var marg = new Margin(margin, unit);
 
-      return marg;
-    }
-  }
-  var constructor = function (margins, unit) {
-    var right = margins.right;
-    var left = margins.left;
-    var top = margins.top;
-    var bottom = margins.bottom;
+            return marg;
+        }
+    };
+    var constructor = function (margins, unit) {
+        var right = margins.right;
+        var left = margins.left;
+        var top = margins.top;
+        var bottom = margins.bottom;
 
-    this.to = function (toUnit) {
-      return new Margin({
-        right: Dimens.to(right, unit, toUnit),
-        left: Dimens.to(left, unit, toUnit),
-        top: Dimens.to(top, unit, toUnit),
-        bottom: Dimens.to(bottom, unit, toUnit),
-      }, toUnit)
+        this.to = function (toUnit) {
+            return new Margin({
+                right: Dimens.to(right, unit, toUnit),
+                left: Dimens.to(left, unit, toUnit),
+                top: Dimens.to(top, unit, toUnit),
+                bottom: Dimens.to(bottom, unit, toUnit),
+            }, toUnit);
+        };
+
+        this.top = function () {
+            return top;
+        };
+        this.left = function () {
+            return left;
+        };
+        this.right = function () {
+            return right;
+        };
+        this.bottom = function () {
+            return bottom;
+        };
+        this.toArray = function () {
+            return [top, left, bottom, right];
+        };
     };
 
-    this.top = function () {
-      return top;
-    }
-    this.left = function () {
-      return left;
-    }
-    this.right = function () {
-      return right;
-    }
-    this.bottom = function () {
-      return bottom;
-    }
-    this.toArray = function () {
-      return [top, left, bottom, right];
-    }
-  }
-
-  constructor.createPDFMargin = _createPDFMargin;
-  return constructor;
+    constructor.createPDFMargin = _createPDFMargin;
+    return constructor;
 })();
 
 var Size = function (value, unit) {
-  this.to = function (toUnit) {
-    return new Size(Dimens.to(value, unit, toUnit), toUnit);
-  }
+    this.to = function (toUnit) {
+        return new Size(Dimens.to(value, unit, toUnit), toUnit);
+    };
 
-  this.value = function () {
-    return value;
-  }
-  this.unit = function () {
-    return unit;
-  }
-}
+    this.value = function () {
+        return value;
+    };
+    this.unit = function () {
+        return unit;
+    };
+};
 Size.from = function (obj, valueProp) {
-  valueProp = valueProp ? valueProp : "value";
-  if (!obj.hasOwnProperty(valueProp) || !obj.hasOwnProperty("unit")) return null;
-  if (!check.isNumber(obj[valueProp]) || obj[valueProp] < 0 || UNITS.Enumerated.indexOf(obj.unit) == -1) return null;
-  return new Size(obj[valueProp], obj.unit);
+    valueProp = valueProp ? valueProp : 'value';
+    if (!obj.hasOwnProperty(valueProp) || !obj.hasOwnProperty('unit')) return null;
+    if (!check.isNumber(obj[valueProp]) || obj[valueProp] < 0 || UNITS.Enumerated.indexOf(obj.unit) == -1) return null;
+    return new Size(obj[valueProp], obj.unit);
 };
 
 
 module.exports = {
-  Dimens: Dimens,
-  Margin: Margin,
-  Size: Size,
-  UNITS: UNITS
-}
+    Dimens: Dimens,
+    Margin: Margin,
+    Size: Size,
+    UNITS: UNITS
+};
 
 },{"./type-check.js":8}],3:[function(require,module,exports){
 var dimensions = require('./dimensions.js');
@@ -385,363 +385,364 @@ var Dimens = dimensions.Dimens;
 var UNITS = dimensions.UNITS;
 
 var FormatConfig = (function() {
-  var DEFAULT_FORMATS = {
-    'a0': new Dimens(2383.94, 3370.39, UNITS.Points),
-    'a1': new Dimens(1683.78, 2383.94, UNITS.Points),
-    'a2': new Dimens(1190.55, 1683.78, UNITS.Points),
-    'a3': new Dimens(841.89, 1190.55, UNITS.Points),
-    'a4': new Dimens(595.28, 841.89, UNITS.Points),
-    'a5': new Dimens(419.53, 595.28, UNITS.Points),
-    'a6': new Dimens(297.64, 419.53, UNITS.Points),
-    'a7': new Dimens(209.76, 297.64, UNITS.Points),
-    'a8': new Dimens(147.40, 209.76, UNITS.Points),
-    'a9': new Dimens(104.88, 147.40, UNITS.Points),
-    'a10': new Dimens(73.70, 104.88, UNITS.Points),
-    'b0': new Dimens(2834.65, 4008.19, UNITS.Points),
-    'b1': new Dimens(2004.09, 2834.65, UNITS.Points),
-    'b2': new Dimens(1417.32, 2004.09, UNITS.Points),
-    'b3': new Dimens(1000.63, 1417.32, UNITS.Points),
-    'b4': new Dimens(708.66, 1000.63, UNITS.Points),
-    'b5': new Dimens(498.90, 708.66, UNITS.Points),
-    'b6': new Dimens(354.33, 498.90, UNITS.Points),
-    'b7': new Dimens(249.45, 354.33, UNITS.Points),
-    'b8': new Dimens(175.75, 249.45, UNITS.Points),
-    'b9': new Dimens(124.72, 175.75, UNITS.Points),
-    'b10': new Dimens(87.87, 124.72, UNITS.Points),
-    'c0': new Dimens(2599.37, 3676.54, UNITS.Points),
-    'c1': new Dimens(1836.85, 2599.37, UNITS.Points),
-    'c2': new Dimens(1298.27, 1836.85, UNITS.Points),
-    'c3': new Dimens(918.43, 1298.27, UNITS.Points),
-    'c4': new Dimens(649.13, 918.43, UNITS.Points),
-    'c5': new Dimens(459.21, 649.13, UNITS.Points),
-    'c6': new Dimens(323.15, 459.21, UNITS.Points),
-    'c7': new Dimens(229.61, 323.15, UNITS.Points),
-    'c8': new Dimens(161.57, 229.61, UNITS.Points),
-    'c9': new Dimens(113.39, 161.57, UNITS.Points),
-    'c10': new Dimens(79.37, 113.39, UNITS.Points),
-    'dl': new Dimens(311.81, 623.62, UNITS.Points),
-    'letter': new Dimens(612, 792, UNITS.Points),
-    'government-letter': new Dimens(576, 756, UNITS.Points),
-    'legal': new Dimens(612, 1008, UNITS.Points),
-    'junior-legal': new Dimens(576, 360, UNITS.Points),
-    'ledger': new Dimens(1224, 792, UNITS.Points),
-    'tabloid': new Dimens(792, 1224, UNITS.Points),
-    'credit-card': new Dimens(153, 243, UNITS.Points)
-  };
-
-  var userFormats = {};
-
-  var _getFormats = function() {
-    var formatsCopy = {};
-    for (var format in DEFAULT_FORMATS) {
-      if (DEFAULT_FORMATS.hasOwnProperty(format)) {
-        formatsCopy[format] = DEFAULT_FORMATS[format];
-      };
-    }
-    for (var format in userFormats) {
-      if (userFormats.hasOwnProperty(format)) {
-        formatsCopy[format] = userFormats[format];
-      }
-    }
-    return formatsCopy;
-  };
-
-  var _isDefaultFormat = function(format) {
-    if (userFormats.hasOwnProperty(format)) return false;
-    return DEFAULT_FORMATS.hasOwnProperty(format);
-  }
-
-  var _formatExists = function(format) {
-    return userFormats.hasOwnProperty(format) || DEFAULT_FORMATS.hasOwnProperty(format);
-  }
-
-  var _addFormat = function(format, dimension) {
-    if (userFormats.hasOwnProperty(format)) return {
-      error: "Format " + format + " already exists"
+    var DEFAULT_FORMATS = {
+        'a0': new Dimens(2383.94, 3370.39, UNITS.Points),
+        'a1': new Dimens(1683.78, 2383.94, UNITS.Points),
+        'a2': new Dimens(1190.55, 1683.78, UNITS.Points),
+        'a3': new Dimens(841.89, 1190.55, UNITS.Points),
+        'a4': new Dimens(595.28, 841.89, UNITS.Points),
+        'a5': new Dimens(419.53, 595.28, UNITS.Points),
+        'a6': new Dimens(297.64, 419.53, UNITS.Points),
+        'a7': new Dimens(209.76, 297.64, UNITS.Points),
+        'a8': new Dimens(147.40, 209.76, UNITS.Points),
+        'a9': new Dimens(104.88, 147.40, UNITS.Points),
+        'a10': new Dimens(73.70, 104.88, UNITS.Points),
+        'b0': new Dimens(2834.65, 4008.19, UNITS.Points),
+        'b1': new Dimens(2004.09, 2834.65, UNITS.Points),
+        'b2': new Dimens(1417.32, 2004.09, UNITS.Points),
+        'b3': new Dimens(1000.63, 1417.32, UNITS.Points),
+        'b4': new Dimens(708.66, 1000.63, UNITS.Points),
+        'b5': new Dimens(498.90, 708.66, UNITS.Points),
+        'b6': new Dimens(354.33, 498.90, UNITS.Points),
+        'b7': new Dimens(249.45, 354.33, UNITS.Points),
+        'b8': new Dimens(175.75, 249.45, UNITS.Points),
+        'b9': new Dimens(124.72, 175.75, UNITS.Points),
+        'b10': new Dimens(87.87, 124.72, UNITS.Points),
+        'c0': new Dimens(2599.37, 3676.54, UNITS.Points),
+        'c1': new Dimens(1836.85, 2599.37, UNITS.Points),
+        'c2': new Dimens(1298.27, 1836.85, UNITS.Points),
+        'c3': new Dimens(918.43, 1298.27, UNITS.Points),
+        'c4': new Dimens(649.13, 918.43, UNITS.Points),
+        'c5': new Dimens(459.21, 649.13, UNITS.Points),
+        'c6': new Dimens(323.15, 459.21, UNITS.Points),
+        'c7': new Dimens(229.61, 323.15, UNITS.Points),
+        'c8': new Dimens(161.57, 229.61, UNITS.Points),
+        'c9': new Dimens(113.39, 161.57, UNITS.Points),
+        'c10': new Dimens(79.37, 113.39, UNITS.Points),
+        'dl': new Dimens(311.81, 623.62, UNITS.Points),
+        'letter': new Dimens(612, 792, UNITS.Points),
+        'government-letter': new Dimens(576, 756, UNITS.Points),
+        'legal': new Dimens(612, 1008, UNITS.Points),
+        'junior-legal': new Dimens(576, 360, UNITS.Points),
+        'ledger': new Dimens(1224, 792, UNITS.Points),
+        'tabloid': new Dimens(792, 1224, UNITS.Points),
+        'credit-card': new Dimens(153, 243, UNITS.Points)
     };
-    if (!Dimens.isValidPdfDimensionObject(dimension)) return {
-      error: "Dimensions are of an invalid type"
+
+    var userFormats = {};
+
+    var _getFormats = function() {
+        var formatsCopy = {};
+        var format;
+        for (format in DEFAULT_FORMATS) {
+            if (DEFAULT_FORMATS.hasOwnProperty(format)) {
+                formatsCopy[format] = DEFAULT_FORMATS[format];
+            }
+        }
+        for (format in userFormats) {
+            if (userFormats.hasOwnProperty(format)) {
+                formatsCopy[format] = userFormats[format];
+            }
+        }
+        return formatsCopy;
     };
-    userFormats[format] = Dimens.toPdfDimension(dimension);
+
+    var _isDefaultFormat = function(format) {
+        if (userFormats.hasOwnProperty(format)) return false;
+        return DEFAULT_FORMATS.hasOwnProperty(format);
+    };
+
+    var _formatExists = function(format) {
+        return userFormats.hasOwnProperty(format) || DEFAULT_FORMATS.hasOwnProperty(format);
+    };
+
+    var _addFormat = function(format, dimension) {
+        if (userFormats.hasOwnProperty(format)) return {
+            error: 'Format ' + format + ' already exists'
+        };
+        if (!Dimens.isValidPdfDimensionObject(dimension)) return {
+            error: 'Dimensions are of an invalid type'
+        };
+        userFormats[format] = Dimens.toPdfDimension(dimension);
+        return {
+            success: true
+        };
+    };
+
+    var _getFormat = function(format) {
+        if (userFormats.hasOwnProperty(format)) return userFormats[format];
+        if (DEFAULT_FORMATS.hasOwnProperty(format)) return DEFAULT_FORMATS[format];
+        console.error('The format ' + format + ' doesn\'t exist.');
+        return null;
+    };
+
     return {
-      success: true
+        getFormats: _getFormats,
+        isDefaultFormat: function(format) {
+            return _isDefaultFormat(format.toLowerCase());
+        },
+        addFormat: function(format, width, height, unit) {
+            return _addFormat(format.toLowerCase(), width, height, unit);
+        },
+        getFormat: function(format) {
+            return _getFormat(format.toLowerCase());
+        },
+        formatExists: function(format) {
+            return _formatExists(format.toLowerCase());
+        }
     };
-  }
-
-  var _getFormat = function(format) {
-    if (userFormats.hasOwnProperty(format)) return userFormats[format];
-    if (DEFAULT_FORMATS.hasOwnProperty(format)) return DEFAULT_FORMATS[format];
-    console.error("The format " + format + " doesn't exist.");
-    return null;
-  }
-
-  return {
-    getFormats: _getFormats,
-    isDefaultFormat: function(format) {
-      return _isDefaultFormat(format.toLowerCase());
-    },
-    addFormat: function(format, width, height, unit) {
-      return _addFormat(format.toLowerCase(), width, height, unit);
-    },
-    getFormat: function(format) {
-      return _getFormat(format.toLowerCase());
-    },
-    formatExists: function(format) {
-      return _formatExists(format.toLowerCase());
-    }
-  }
 })();
 
 module.exports = FormatConfig;
 
 },{"./dimensions.js":2}],4:[function(require,module,exports){
-var check = require("./type-check.js");
-var dimensions = require("./dimensions.js");
+var check = require('./type-check.js');
+var dimensions = require('./dimensions.js');
 var Dimens = dimensions.Dimens;
 var Size = dimensions.Size;
 var UNITS = dimensions.UNITS;
-var scaleElement = require("./scale-element.js");
+var scaleElement = require('./scale-element.js');
 
-var HIDDEN_CONTAINER_STYLE = "overflow: hidden; height: 0; width: 0; position: fixed;";
+var HIDDEN_CONTAINER_STYLE = 'overflow: hidden; height: 0; width: 0; position: fixed;';
 
 var HtmlObject = (function() {
-  var constructor = function(html, height, baseline, handlers) {
-    var heightPercent = height.value()/baseline.height();
-    handlers = check.isObject(handlers) ? handlers : {};
-    baseline = new Dimens(baseline.width(), baseline.height()*heightPercent, baseline.unit());
-    this.html = function() { return html; }
-    this.height = function() { return height; }
-    this.baseline = function() { return baseline; }
-    this.handlers = function() { return handlers; }
-    this.heightPercent = function() { return heightPercent; }
-  }
+    var constructor = function(html, height, baseline, handlers) {
+        var heightPercent = height.value()/baseline.height();
+        handlers = check.isObject(handlers) ? handlers : {};
+        baseline = new Dimens(baseline.width(), baseline.height()*heightPercent, baseline.unit());
+        this.html = function() { return html; };
+        this.height = function() { return height; };
+        this.baseline = function() { return baseline; };
+        this.handlers = function() { return handlers; };
+        this.heightPercent = function() { return heightPercent; };
+    };
 
-  var _getBaseline = function(baseline, formatConfig) {
-    var result = null;
-    if(check.isObject(baseline)
-    && baseline.hasOwnProperty("format")
+    var _getBaseline = function(baseline, formatConfig) {
+        var result = null;
+        if(check.isObject(baseline)
+    && baseline.hasOwnProperty('format')
     && (check.isString(baseline.format) || Dimens.isValidDimensionObject(baseline.format))) {
-      if(check.isString(baseline.format)) {
-        result = formatConfig.getFormat(baseline.format);
-      } else {
-        result = Dimens.toDimension(baseline.format);
-      }
-      if(baseline.orientation === "l") {
-        result = new Dimens(result.height(), result.width(), result.unit());
-      }
-    } else if(check.isString(baseline) && formatConfig.formatExists(baseline)) {
-      result = formatConfig.getFormat(baseline);
-    }
-    return result;
-  }
-  constructor.from = function(obj, formatConfig) {
-    if(!obj.hasOwnProperty("html")
-    || !obj.hasOwnProperty("height")
-    || !obj.hasOwnProperty("baseline")) {
-      console.error("Missing a required property in the html object");
-      return null;
-    }
-    var html = createOrReturnHTML(obj.html);
-    if(html === null) {
-      console.error("Html property couldn't be parsed to an html object");
-      console.error(obj.baseline)
-      return null;
-    }
-    var height = Size.from(obj.height);
-    if(height === null) {
-      console.error("Couldn't parse the height property of the html object");
-      console.error(obj.height)
-      return null;
-    }
-    var baseline = _getBaseline(obj.baseline, formatConfig);
-    if(baseline === null) {
-      console.error("Couldn't parse the baseline property of the html object");
-      console.error(obj.baseline);
-      return null;
-    }
-    return new HtmlObject(html, height, baseline);
-  }
-  return constructor;
+            if(check.isString(baseline.format)) {
+                result = formatConfig.getFormat(baseline.format);
+            } else {
+                result = Dimens.toDimension(baseline.format);
+            }
+            if(baseline.orientation === 'l') {
+                result = new Dimens(result.height(), result.width(), result.unit());
+            }
+        } else if(check.isString(baseline) && formatConfig.formatExists(baseline)) {
+            result = formatConfig.getFormat(baseline);
+        }
+        return result;
+    };
+    constructor.from = function(obj, formatConfig) {
+        if(!obj.hasOwnProperty('html')
+    || !obj.hasOwnProperty('height')
+    || !obj.hasOwnProperty('baseline')) {
+            console.error('Missing a required property in the html object');
+            return null;
+        }
+        var html = createOrReturnHTML(obj.html);
+        if(html === null) {
+            console.error('Html property couldn\'t be parsed to an html object');
+            console.error(obj.baseline);
+            return null;
+        }
+        var height = Size.from(obj.height);
+        if(height === null) {
+            console.error('Couldn\'t parse the height property of the html object');
+            console.error(obj.height);
+            return null;
+        }
+        var baseline = _getBaseline(obj.baseline, formatConfig);
+        if(baseline === null) {
+            console.error('Couldn\'t parse the baseline property of the html object');
+            console.error(obj.baseline);
+            return null;
+        }
+        return new HtmlObject(html, height, baseline);
+    };
+    return constructor;
 })();
 
 
 var createOrReturnHTML = function(html) {
-  if (check.isString(html)) {
-    var template = document.createElement('template');
-    html = html.trim();
-    template.innerHTML = html;
-    return template.content.firstChild;
-  } else if (check.isHTMLElement(html)) {
-    return html.cloneNode(true);
-  } else {
-    console.error(html + " is not a html element or string");
-    return null;
-  }
-}
+    if (check.isString(html)) {
+        var template = document.createElement('template');
+        html = html.trim();
+        template.innerHTML = html;
+        return template.content.firstChild;
+    } else if (check.isHTMLElement(html)) {
+        return html.cloneNode(true);
+    } else {
+        console.error(html + ' is not a html element or string');
+        return null;
+    }
+};
 
 var createDocumentContainer = function(dimens) {
-  dimens = dimens.to(UNITS.Pixels);
-  var hidden = document.createElement('div');
-  hidden.setAttribute("style", HIDDEN_CONTAINER_STYLE);
-  var doc = document.createElement("div");
-  doc.style.width = dimens.width() + dimens.unit();
-  doc.style.height = dimens.height() + dimens.unit();
-  hidden.appendChild(doc);
-  document.body.appendChild(hidden);
-  return doc;
-}
+    dimens = dimens.to(UNITS.Pixels);
+    var hidden = document.createElement('div');
+    hidden.setAttribute('style', HIDDEN_CONTAINER_STYLE);
+    var doc = document.createElement('div');
+    doc.style.width = dimens.width() + dimens.unit();
+    doc.style.height = dimens.height() + dimens.unit();
+    hidden.appendChild(doc);
+    document.body.appendChild(hidden);
+    return doc;
+};
 
 var addHTMLObject = function(htmlObj, container, dimens) {
-  if(htmlObj instanceof HtmlObject) {
-    dimens = dimens.to(UNITS.Pixels);
-    var htmlContainer = document.createElement('div');
-    htmlContainer.style.width = dimens.width() + dimens.unit();
-    htmlContainer.style.height = dimens.height() + dimens.unit();
-    htmlContainer.appendChild(htmlObj.html());
-    container.appendChild(htmlContainer);
-    scaleElement(htmlObj.html(), htmlObj.handlers(), htmlObj.baseline(), dimens);
-  }
-  return htmlObj;
-}
+    if(htmlObj instanceof HtmlObject) {
+        dimens = dimens.to(UNITS.Pixels);
+        var htmlContainer = document.createElement('div');
+        htmlContainer.style.width = dimens.width() + dimens.unit();
+        htmlContainer.style.height = dimens.height() + dimens.unit();
+        htmlContainer.appendChild(htmlObj.html());
+        container.appendChild(htmlContainer);
+        scaleElement(htmlObj.html(), htmlObj.handlers(), htmlObj.baseline(), dimens);
+    }
+    return htmlObj;
+};
 
 var createMapContainer = function(container, dimens) {
-  var mapContainer = document.createElement('div');
-  dimens = dimens.to(UNITS.Pixels);
-  mapContainer.style.width = dimens.width() + dimens.unit();
-  mapContainer.style.height = dimens.height() + dimens.unit();
-  container.appendChild(mapContainer);
-  return mapContainer;
-}
+    var mapContainer = document.createElement('div');
+    dimens = dimens.to(UNITS.Pixels);
+    mapContainer.style.width = dimens.width() + dimens.unit();
+    mapContainer.style.height = dimens.height() + dimens.unit();
+    container.appendChild(mapContainer);
+    return mapContainer;
+};
 
 module.exports = {
-  createMapContainer: createMapContainer,
-  addHTMLObject: addHTMLObject,
-  createDocumentContainer: createDocumentContainer,
-  createOrReturnHTML: createOrReturnHTML,
-  HtmlObject: HtmlObject
-}
+    createMapContainer: createMapContainer,
+    addHTMLObject: addHTMLObject,
+    createDocumentContainer: createDocumentContainer,
+    createOrReturnHTML: createOrReturnHTML,
+    HtmlObject: HtmlObject
+};
 
 },{"./dimensions.js":2,"./scale-element.js":7,"./type-check.js":8}],5:[function(require,module,exports){
 
-var check = require("./type-check.js");
-var UNITS = require("./dimensions.js").UNITS;
+var check = require('./type-check.js');
+var UNITS = require('./dimensions.js').UNITS;
 var QUIESCE_TIMEOUT = 500;
-var SCALE_UNITS = ["metric", "imperial", "nautical"];
+var SCALE_UNITS = ['metric', 'imperial', 'nautical'];
 
 function isValidScaleObject(value) {
-  if (!check.isObject(value)) return false;
-  if (!value.hasOwnProperty("maxWidthPercent") || !value.hasOwnProperty("unit")) return false;
-  if (!check.isNumber(value.maxWidthPercent) || !check.isString(value.unit)) return false;
-  if (value.maxWidthPercent <= 0 || SCALE_UNITS.indexOf(value.unit) === -1) return false;
-  if (value.maxWidthPercent > 1) value.maxWidthPercent /= 100;
-  return true;;
+    if (!check.isObject(value)) return false;
+    if (!value.hasOwnProperty('maxWidthPercent') || !value.hasOwnProperty('unit')) return false;
+    if (!check.isNumber(value.maxWidthPercent) || !check.isString(value.unit)) return false;
+    if (value.maxWidthPercent <= 0 || SCALE_UNITS.indexOf(value.unit) === -1) return false;
+    if (value.maxWidthPercent > 1) value.maxWidthPercent /= 100;
+    return true;
 }
 
 function calculateMaxSize(map) {
-  var maxSize = -1;
-  if (map && map.loaded()) {
-    var canvas = map.getCanvas();
-    var gl = canvas.getContext('experimental-webgl');
-    maxSize = gl.getParameter(gl.MAX_RENDERBUFFER_SIZE);
-  }
-  return maxSize;
+    var maxSize = -1;
+    if (map && map.loaded()) {
+        var canvas = map.getCanvas();
+        var gl = canvas.getContext('experimental-webgl');
+        maxSize = gl.getParameter(gl.MAX_RENDERBUFFER_SIZE);
+    }
+    return maxSize;
 }
 
 function getDpiForSize(size, map) {
-  var maxSize = calculateMaxSize(map);
-  if (maxSize <= 0) return {
-    error: "Couldn't calculate the maximum size of the render buffer"
-  };
+    var maxSize = calculateMaxSize(map);
+    if (maxSize <= 0) return {
+        error: 'Couldn\'t calculate the maximum size of the render buffer'
+    };
 
-  return {
-    result: maxSize / size.to(UNITS.Inches).value()
-  };
+    return {
+        result: maxSize / size.to(UNITS.Inches).value()
+    };
 }
 
 function calculateMaximumDpi(size, map, dpi) {
-  var dpiRes = getDpiForSize(size, map);
-  if (dpiRes.error) {
-    console.error("Error when calculating dpi for size: " + dpiRes.error);
-    return dpi;
-  }
-  return dpiRes.result;
+    var dpiRes = getDpiForSize(size, map);
+    if (dpiRes.error) {
+        console.error('Error when calculating dpi for size: ' + dpiRes.error);
+        return dpi;
+    }
+    return dpiRes.result;
 }
 
 
 function waitForMapToRender(map) {
-  var noneLoaded = false;
-  var initial = true;
-  return new Promise(function (resolve, reject) {
-    var quiesce = function () {
-      if (!noneLoaded || (!map.loaded() || !map.isStyleLoaded() || !map.areTilesLoaded())) {
-        noneLoaded = true;
-        setTimeout(quiesce, QUIESCE_TIMEOUT);
-      } else {
-        map.off('render', renderListener);
-        resolve(map);
-      }
-    }
-    var renderListener = function () {
-      noneLoaded = false;
-      if (initial && map.loaded() && map.isStyleLoaded() && map.areTilesLoaded()) {
-        initial = false;
-        quiesce();
-      }
-    }
-    map.on('render', renderListener);
-  });
+    var noneLoaded = false;
+    var initial = true;
+    return new Promise(function (resolve) {
+        var quiesce = function () {
+            if (!noneLoaded || (!map.loaded() || !map.isStyleLoaded() || !map.areTilesLoaded())) {
+                noneLoaded = true;
+                setTimeout(quiesce, QUIESCE_TIMEOUT);
+            } else {
+                map.off('render', renderListener);
+                resolve(map);
+            }
+        };
+        var renderListener = function () {
+            noneLoaded = false;
+            if (initial && map.loaded() && map.isStyleLoaded() && map.areTilesLoaded()) {
+                initial = false;
+                quiesce();
+            }
+        };
+        map.on('render', renderListener);
+    });
 
 }
 
 function addScale(map, scale, mapboxgl) {
-  return new Promise(function (resolve, reject) {
+    return new Promise(function (resolve, reject) {
 
-    try {
-      if (scale) {
-        map.addControl(new mapboxgl.ScaleControl({
-          maxWidth: scale.maxWidthPercent * map._container.scrollWidth,
-          unit: scale.unit
-        }));
-      }
-      resolve(map);
-    } catch (err) {
-      reject(err);
-    }
-  });
+        try {
+            if (scale) {
+                map.addControl(new mapboxgl.ScaleControl({
+                    maxWidth: scale.maxWidthPercent * map._container.scrollWidth,
+                    unit: scale.unit
+                }));
+            }
+            resolve(map);
+        } catch (err) {
+            reject(err);
+        }
+    });
 }
 
 function createPrintMap(map, mapboxgl, container) {
-  return new Promise(function (resolve, reject) {
+    return new Promise(function (resolve, reject) {
 
-    try {
-      var renderMap = new mapboxgl.Map({
-        container: container,
-        center: map.getCenter(),
-        style: map.getStyle(),
-        bearing: map.getBearing(),
-        maxZoom: 24,
-        minBounds: map.getBounds(),
-        pitch: map.getPitch(),
-        interactive: false,
-        attributionControl: false,
-        preserveDrawingBuffer: true
-      });
-      renderMap.fitBounds(map.getBounds());
+        try {
+            var renderMap = new mapboxgl.Map({
+                container: container,
+                center: map.getCenter(),
+                style: map.getStyle(),
+                bearing: map.getBearing(),
+                maxZoom: 24,
+                minBounds: map.getBounds(),
+                pitch: map.getPitch(),
+                interactive: false,
+                attributionControl: false,
+                preserveDrawingBuffer: true
+            });
+            renderMap.fitBounds(map.getBounds());
 
-      resolve(renderMap);
-    } catch (err) {
-      reject(err);
-    }
-  })
+            resolve(renderMap);
+        } catch (err) {
+            reject(err);
+        }
+    });
 }
 
 module.exports = {
-  calculateMaximumDpi: calculateMaximumDpi,
-  createPrintMap: createPrintMap,
-  isValidScaleObject: isValidScaleObject,
-  addScale: addScale,
-  waitForMapToRender: waitForMapToRender
-}
+    calculateMaximumDpi: calculateMaximumDpi,
+    createPrintMap: createPrintMap,
+    isValidScaleObject: isValidScaleObject,
+    addScale: addScale,
+    waitForMapToRender: waitForMapToRender
+};
 
 },{"./dimensions.js":2,"./type-check.js":8}],6:[function(require,module,exports){
 /*
@@ -771,7 +772,6 @@ module.exports = {
 var jsPDF = require('jspdf');
 var html2canvas = require('html2canvas');
 var check = require('./type-check.js');
-var scaleElement = require('./scale-element.js');
 var dimensions = require('./dimensions.js');
 var Html = require('./html-container.js');
 var FormatConfig = require('./format-config.js');
@@ -792,7 +792,6 @@ function getOrientedDimensions(dimensions, orientation) {
 
 function subdivideRenderFormat(header, footer, renderFormat) {
     var renderDimensions = {full: renderFormat};
-    var footerPercent = check.isObject(footer) ? footer.heightPercent : 0;
     var mapPercent = 1;
     if(header) {
         renderDimensions.header = new Dimens(renderFormat.width(), renderFormat.height()*header.heightPercent(), renderFormat.unit());
@@ -840,7 +839,7 @@ var PdfBuilder = (function() {
             });
         };
 
-        var _printMap = function(map) {
+        var _printMap = function() {
             return new Promise(function(resolve, reject) {
                 var dimensions = FormatConfig.getFormat(format);
                 var convMargins = margins.to(dimensions.unit());
@@ -855,14 +854,14 @@ var PdfBuilder = (function() {
                 var writeCanvasToPdf = function(canvas) {
                     var renderFormat = getRenderFormat(format, orientation, convMargins);
                     try {
-                    pdf.addImage(canvas, 'png', convMargins.left(), convMargins.top(),
-                        renderFormat.width(),
-                        renderFormat.height(), null, 'FAST');
+                        pdf.addImage(canvas, 'png', convMargins.left(), convMargins.top(),
+                            renderFormat.width(),
+                            renderFormat.height(), null, 'FAST');
                         resolve(pdf);
                     } catch(err) {
                         reject(err);
                     }
-                }
+                };
                 html2canvas(htmlDoc, {
                     letterRendering: true,
                     useCORS: true,
@@ -870,7 +869,7 @@ var PdfBuilder = (function() {
                     allowTaint: true
                 }).then(writeCanvasToPdf, reject);
             });
-        }
+        };
 
         var _decreaseDpiToValidValue = function(mapDimens, map) {
             mapDimens = mapDimens.to(UNITS.Pixels);
@@ -882,10 +881,11 @@ var PdfBuilder = (function() {
                 dpi = newDpi;
                 Object.defineProperty(window, 'devicePixelRatio', {
                     get: function() {
-                        return dpi / 96
+                        return dpi / 96;
                     }
                 });
-                hidden.parentNode.removeChild(hidden);
+                var hidden = htmlDoc.parentNode;
+                hidden.removeChild(hidden);
                 document.body.appendChild(hidden);
             }
         };
@@ -894,7 +894,7 @@ var PdfBuilder = (function() {
             actualPixelRatio = window.devicePixelRatio;
             Object.defineProperty(window, 'devicePixelRatio', {
                 get: function() {
-                    return dpi / 96
+                    return dpi / 96;
                 }
             });
 
@@ -907,7 +907,7 @@ var PdfBuilder = (function() {
 
             _decreaseDpiToValidValue(renderDimensions.map, map);
             return container;
-        }
+        };
 
         this.format = function(nwFormat) {
             if (check.isString(nwFormat) && FormatConfig.formatExists(nwFormat)) {
@@ -949,7 +949,7 @@ var PdfBuilder = (function() {
                 if(check.isFunction(elemCallback)) elemCallback(header.html());
             }
             return that;
-        }
+        };
 
         this.footer = function(nwFooter, elemCallback) {
             var tmpFooter = HtmlObject.from(nwFooter, FormatConfig);
@@ -958,7 +958,7 @@ var PdfBuilder = (function() {
                 if(check.isFunction(elemCallback)) elemCallback(footer.html());
             }
             return that;
-        }
+        };
 
 
         this.scale = function(nwScale) {
@@ -968,7 +968,7 @@ var PdfBuilder = (function() {
                 console.error('The given scale is invalid: ' + nwScale);
             }
             return that;
-        }
+        };
 
         this.margins = function(nwMargins, unit) {
             var tmpMargins = Margin.createPDFMargin(nwMargins, unit ? unit : UNITS.Millimeters);
@@ -978,11 +978,11 @@ var PdfBuilder = (function() {
                 console.error('The provided arguments are invalid: ' + nwMargins + ', ' + unit);
             }
             return that;
-        }
+        };
 
         var _waitForStyleToLoad = function(map) {
             var TIMEOUT = 100;
-            var maxWait = 2000;
+            var maxWait = 10000;
             var waited = -1*TIMEOUT;
 
             
@@ -991,17 +991,17 @@ var PdfBuilder = (function() {
                     if(map.isStyleLoaded()) {
                         resolve(map);
                     } else {
-                        waited += timeout;
-                        if(waited >= timeout) {
-                            reject(new Error("The maps style took too long to load."));
+                        waited += TIMEOUT;
+                        if(waited >= maxWait) {
+                            reject(new Error('The maps style took too long to load.'));
                         } else {
                             setTimeout(checkStyle, TIMEOUT);
                         }
                     }
-                }
+                };
                 checkStyle();
             });
-        }
+        };
         this.print = function(map, mapboxgl) {
             
             if (!map.isStyleLoaded()) {
@@ -1018,24 +1018,23 @@ var PdfBuilder = (function() {
                 
                 var afterRenderMapCreate = function(renderMap) {
                     return new Promise(function (res, rej) {
-                        ;
                         mapUtils.addScale(renderMap, scale, mapboxgl)
-                                .then(mapUtils.waitForMapToRender)
-                                .then(_printMap)
-                                .then(function(pdf) {
-                                    _cleanup(renderMap);
-                                    res(pdf);
-                                }, function(err) {
-                                    _cleanup(renderMap);
-                                    rej(err);
-                                })
+                            .then(mapUtils.waitForMapToRender)
+                            .then(_printMap)
+                            .then(function(pdf) {
+                                _cleanup(renderMap);
+                                res(pdf);
+                            }, function(err) {
+                                _cleanup(renderMap);
+                                rej(err);
+                            });
                     });
-                }
+                };
                 mapUtils.createPrintMap(map, mapboxgl, container)
                     .then(afterRenderMapCreate)
                     .then(resolve, reject);
             });
-        }
+        };
 
     };
     return constructor;
@@ -1044,9 +1043,9 @@ var PdfBuilder = (function() {
 module.exports = {
     formats: FormatConfig,
     build: function() { return new PdfBuilder(); }
-}
+};
 
-},{"./dimensions.js":2,"./format-config.js":3,"./html-container.js":4,"./map-utils.js":5,"./scale-element.js":7,"./type-check.js":8,"html2canvas":42,"jspdf":66}],7:[function(require,module,exports){
+},{"./dimensions.js":2,"./format-config.js":3,"./html-container.js":4,"./map-utils.js":5,"./type-check.js":8,"html2canvas":42,"jspdf":66}],7:[function(require,module,exports){
 /*
  * Mapbox Print Pdf - Printing PDFs with high resolution mapbox maps
  * Copyright (c) 2018 Eddie Larsson
@@ -1070,168 +1069,154 @@ module.exports = {
  * THE SOFTWARE.
  */
 
-var check = require("./type-check.js");
-var Dimens = require("./dimensions.js").Dimens;
-var SUPPORTED_UNITS = ["px", "pt", "rem", "cm", "mm", "in", "pc"];
-var ATTR_SCALE_WIDTH = "data-scale-width";
-var ATTR_SCALE_HEIGHT = "data-scale-height";
-var ATTR_SCALE_SUM = "data-scale-sum";
-var ATTR_HANDLER = "data-scale-handler";
+var check = require('./type-check.js');
+var Dimens = require('./dimensions.js').Dimens;
+var SUPPORTED_UNITS = ['px', 'pt', 'rem', 'cm', 'mm', 'in', 'pc'];
+var ATTR_SCALE_WIDTH = 'data-scale-width';
+var ATTR_SCALE_HEIGHT = 'data-scale-height';
+var ATTR_SCALE_SUM = 'data-scale-sum';
+var ATTR_HANDLER = 'data-scale-handler';
 var UNITS_REGEX = makePropertyRegex(SUPPORTED_UNITS);
 
 function toSnakeCase(str) {
-  return str.replace(/([A-Z])/g, "-$1").toLowerCase();
+    return str.replace(/([A-Z])/g, '-$1').toLowerCase();
 }
 
 function toCamelCase(str) {
-  return str.replace(/-([a-z])/g, function (match) {
-    return match[1].toUpperCase();
-  });
+    return str.replace(/-([a-z])/g, function (match) {
+        return match[1].toUpperCase();
+    });
 }
 
 function makePropertyRegex(units) {
-  return new RegExp("^(\\d+\\.?\\d*)(" + units.join("|") + ")$");
+    return new RegExp('^(\\d+\\.?\\d*)(' + units.join('|') + ')$');
 }
 
 var StyleSize = (function(supportedUnits) {
-  var _constructor = function(values) {
-    this.scale = function(percent) {
-      for (var i = 0; i < values.length; ++i) {
-        if (check.isString(values[i]) || supportedUnits.indexOf(values[i].unit) === -1) continue;
-        values[i].size *= percent;
-      }
-      return this;
-    }
-    this.toString = function() {
-      var string = "";
-      for (var i = 0; i < values.length; ++i) {
-        if (i > 0) string += " ";
-        if (check.isString(values[i])) {
-          string += values[i];
-          continue;
+    var _constructor = function(values) {
+        this.scale = function(percent) {
+            for (var i = 0; i < values.length; ++i) {
+                if (check.isString(values[i]) || supportedUnits.indexOf(values[i].unit) === -1) continue;
+                values[i].size *= percent;
+            }
+            return this;
+        };
+        this.toString = function() {
+            var string = '';
+            for (var i = 0; i < values.length; ++i) {
+                if (i > 0) string += ' ';
+                if (check.isString(values[i])) {
+                    string += values[i];
+                    continue;
+                }
+                string += values[i].size + values[i].unit;
+            }
+            return string;
+        };
+    };
+    var _fromString = function(string, regex) {
+        var styleValues = string.split(' ');
+        var values = [];
+        var atLeastOneMatch = false;
+        for (var i = 0; i < styleValues.length; ++i) {
+            var match = regex.exec(styleValues[i]);
+
+            if (!match || match.length != 3) {
+                values.push(styleValues[i]);
+                continue;
+            }
+            atLeastOneMatch = true;
+            values.push({
+                size: Number(match[1]),
+                unit: match[2]
+            });
         }
-        string += values[i].size + values[i].unit;
-      }
-      return string;
-    }
-  }
-  var _fromString = function(string, regex) {
-    var styleValues = string.split(" ");
-    values = [];
-    var atLeastOneMatch = false;
-    for (var i = 0; i < styleValues.length; ++i) {
-      var match = regex.exec(styleValues[i]);
-
-      if (!match || match.length != 3) {
-        values.push(styleValues[i]);
-        continue;
-      }
-      atLeastOneMatch = true;
-      values.push({
-        size: Number(match[1]),
-        unit: match[2]
-      });
-    }
-    if (!atLeastOneMatch) return null;
-    return new _constructor(values);
-  }
-  return {
-    fromString: _fromString
-  };
+        if (!atLeastOneMatch) return null;
+        return new _constructor(values);
+    };
+    return {
+        fromString: _fromString
+    };
 })(SUPPORTED_UNITS);
-
-var Scaling = (function() {
-  var constructor = function(percent, properties, exclude) {
-    this.properties = properties;
-    this.exclude = exclude;
-
-    this.percent = function() {
-      return percent;
-    }
-  }
-  return constructor;
-})();
 
 function getStyle(elem) {
 
-  if (elem.currentStyle) {
-    return {
-      style: elem.currentStyle,
-      snakeCase: false
-    };
+    if (elem.currentStyle) {
+        return {
+            style: elem.currentStyle,
+            snakeCase: false
+        };
 
     // other browsers
-  } else if (document.defaultView &&
+    } else if (document.defaultView &&
     document.defaultView.getComputedStyle) {
-    return {
-      style: document.defaultView.getComputedStyle(elem),
-      snakeCase: true
-    };
-  } else {
-    return null;
-  }
+        return {
+            style: document.defaultView.getComputedStyle(elem),
+            snakeCase: true
+        };
+    } else {
+        return null;
+    }
 }
 
 function scaleSingleElement(element, percent, properties, newStyles) {
-  var className = element.className;
     var style = getStyle(element);
     if (style) {
-      for (var i = 0; i < properties.length; ++i) {
-        var prop = properties[i];
-        var propValue = style.snakeCase ? style.style.getPropertyValue(toSnakeCase(prop)) : style.style[prop];
-        var scaleValue = StyleSize.fromString(propValue, UNITS_REGEX);
-        if (scaleValue) newStyles.push({
-          elem: element,
-          prop: prop,
-          value: scaleValue.scale(percent).toString()
-        });
-      }
+        for (var i = 0; i < properties.length; ++i) {
+            var prop = properties[i];
+            var propValue = style.snakeCase ? style.style.getPropertyValue(toSnakeCase(prop)) : style.style[prop];
+            var scaleValue = StyleSize.fromString(propValue, UNITS_REGEX);
+            if (scaleValue) newStyles.push({
+                elem: element,
+                prop: prop,
+                value: scaleValue.scale(percent).toString()
+            });
+        }
     }
 }
 
 function scaleByAttribute(element, attr, percent, newStyles) {
-  if(element.hasAttribute(attr)) {
-    var properties = toCamelCase(element.getAttribute(attr)).split(" ");
-    scaleSingleElement(element, percent, properties, newStyles);
-  }
+    if(element.hasAttribute(attr)) {
+        var properties = toCamelCase(element.getAttribute(attr)).split(' ');
+        scaleSingleElement(element, percent, properties, newStyles);
+    }
 }
 
 function recursiveScale(element, handlers, scalingObj, newStyles) {
-  var className = element.className;
-  if (element.hasAttribute(ATTR_HANDLER)) {
-    var handler = element.getAttribute(ATTR_HANDLER);
-    if (handlers.hasOwnProperty(handler) && check.isFunction(handlers[id])) {
-      var tmpStyles = handlers[id](element, scalingObj);
-      if (check.isArray(tmpStyles)) newStyles.push.apply(newStyles, tmpStyles);
+    if (element.hasAttribute(ATTR_HANDLER)) {
+        var handler = element.getAttribute(ATTR_HANDLER);
+        if (handlers.hasOwnProperty(handler) && check.isFunction(handlers[handler])) {
+            var tmpStyles = handlers[handler](element, scalingObj);
+            if (check.isArray(tmpStyles)) newStyles.push.apply(newStyles, tmpStyles);
+        }
+    } else {
+        scaleByAttribute(element, ATTR_SCALE_WIDTH, scalingObj.widthRatio, newStyles);
+        scaleByAttribute(element, ATTR_SCALE_HEIGHT, scalingObj.heightRatio, newStyles);
+        scaleByAttribute(element, ATTR_SCALE_SUM, scalingObj.sumRatio, newStyles);
     }
-  } else {
-    scaleByAttribute(element, ATTR_SCALE_WIDTH, scalingObj.widthRatio, newStyles);
-    scaleByAttribute(element, ATTR_SCALE_HEIGHT, scalingObj.heightRatio, newStyles);
-    scaleByAttribute(element, ATTR_SCALE_SUM, scalingObj.sumRatio, newStyles);
-  }
-  for (var i = 0; i < element.children.length; ++i) {
-    recursiveScale(element.children[i], handlers, scalingObj, newStyles);
-  }
+    for (var i = 0; i < element.children.length; ++i) {
+        recursiveScale(element.children[i], handlers, scalingObj, newStyles);
+    }
 }
 
 function applyStyles(newStyles) {
-  for (var i = 0; i < newStyles.length; ++i) {
-    var style = newStyles[i];
-    style.elem.style[style.prop] = style.value;
-  }
+    for (var i = 0; i < newStyles.length; ++i) {
+        var style = newStyles[i];
+        style.elem.style[style.prop] = style.value;
+    }
 }
 
 function scaleElement(element, handlers, orgDimens, currentDimens) {
-  if (!check.isHTMLElement(element) || !(orgDimens instanceof Dimens) || !(currentDimens instanceof Dimens)) return;
+    if (!check.isHTMLElement(element) || !(orgDimens instanceof Dimens) || !(currentDimens instanceof Dimens)) return;
 
-  currentDimens = currentDimens.to(orgDimens.unit());
-  var scalingObj = {original: orgDimens, current: currentDimens};
-  scalingObj.heightRatio = currentDimens.height()/orgDimens.height();
-  scalingObj.widthRatio = currentDimens.width()/orgDimens.width();
-  scalingObj.sumRatio = (currentDimens.sum())/(orgDimens.sum());
-  var newStyles = [];
-  recursiveScale(element, handlers, scalingObj, newStyles);
-  applyStyles(newStyles);
+    currentDimens = currentDimens.to(orgDimens.unit());
+    var scalingObj = {original: orgDimens, current: currentDimens};
+    scalingObj.heightRatio = currentDimens.height()/orgDimens.height();
+    scalingObj.widthRatio = currentDimens.width()/orgDimens.width();
+    scalingObj.sumRatio = (currentDimens.sum())/(orgDimens.sum());
+    var newStyles = [];
+    recursiveScale(element, handlers, scalingObj, newStyles);
+    applyStyles(newStyles);
 }
 
 module.exports = scaleElement;
@@ -1260,29 +1245,29 @@ module.exports = scaleElement;
  * THE SOFTWARE.
  */
 module.exports = {
-  isString: function(obj) {
-    return typeof obj === 'string' || obj instanceof String;
-  },
+    isString: function(obj) {
+        return typeof obj === 'string' || obj instanceof String;
+    },
 
-  isHTMLElement: function(obj) {
-    return obj instanceof Element;
-  },
+    isHTMLElement: function(obj) {
+        return obj instanceof Element;
+    },
 
-  isFunction: function(obj) {
-    return obj instanceof Function;
-  },
+    isFunction: function(obj) {
+        return obj instanceof Function;
+    },
 
-  isObject: function(obj) {
-    return obj === Object(obj);
-  },
+    isObject: function(obj) {
+        return obj === Object(obj);
+    },
 
-  isNumber: function(obj) {
-    return typeof obj === 'number' || (typeof o == "object" && o.constructor === Number);
-  },
-  isArray: function(obj) {
-    return obj instanceof Array;
-  }
-}
+    isNumber: function(obj) {
+        return typeof obj === 'number' || (typeof o == 'object' && obj.constructor === Number);
+    },
+    isArray: function(obj) {
+        return obj instanceof Array;
+    }
+};
 
 },{}],9:[function(require,module,exports){
 'use strict';
