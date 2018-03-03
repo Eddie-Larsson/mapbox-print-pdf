@@ -35,29 +35,13 @@ var Size = dimensions.Size;
 
 var HtmlObject = Html.HtmlObject;
 var UNITS = dimensions.UNITS;
+var RENDER_SCALE = 2;
 
 function getOrientedDimensions(dimensions, orientation) {
     if (orientation == 'l') {
         return new Dimens(dimensions.height(), dimensions.width(), dimensions.unit());
     }
     return dimensions;
-}
-
-function subdivideRenderFormat(header, footer, renderFormat) {
-    var renderDimensions = {full: renderFormat};
-    var mapPercent = 1;
-    if(header) {
-        renderDimensions.header = new Dimens(renderFormat.width(), renderFormat.height()*header.heightPercent(), renderFormat.unit());
-        mapPercent -= header.heightPercent();
-    }
-    if(footer) {
-        renderDimensions.footer = new Dimens(renderFormat.width(), renderFormat.height()*footer.heightPercent(), renderFormat.unit());
-        mapPercent -= footer.heightPercent();
-    }
-    renderDimensions.map = new Dimens(renderFormat.width(), renderFormat.height()*mapPercent, renderFormat.unit());
-    renderDimensions.mapPercent = mapPercent;
-
-    return renderDimensions;
 }
 
 function getRenderFormat(format, orientation, margins) {
@@ -91,6 +75,7 @@ var PdfBuilder = (function() {
                 }
             });
         };
+        
 
         var _printMap = function() {
             return new Promise(function(resolve, reject) {
@@ -107,7 +92,7 @@ var PdfBuilder = (function() {
                 var writeCanvasToPdf = function(canvas) {
                     var renderFormat = getRenderFormat(format, orientation, convMargins);
                     try {
-                        pdf.addImage(canvas, 'png', convMargins.left(), convMargins.top(),
+                        pdf.addImage(canvas.toDataURL('image/jpeg', 1), 'JPEG', convMargins.left(), convMargins.top(),
                             renderFormat.width(),
                             renderFormat.height(), null, 'FAST');
                         resolve(pdf);
@@ -115,11 +100,17 @@ var PdfBuilder = (function() {
                         reject(err);
                     }
                 };
+
+                var whenCloned = function(doc) {
+                    Html.removeStylesExceptMapbox(doc);
+                    Html.clearBodyExceptContainer(doc);
+                };
                 html2canvas(htmlDoc, {
                     letterRendering: true,
                     useCORS: true,
-                    scale: 2,
-                    allowTaint: true
+                    scale: RENDER_SCALE,
+                    allowTaint: true,
+                    onclone: whenCloned
                 }).then(writeCanvasToPdf, reject);
             });
         };
@@ -152,13 +143,14 @@ var PdfBuilder = (function() {
             });
 
             var renderFormat = getRenderFormat(format, orientation, margins);
-            var renderDimensions = subdivideRenderFormat(header, footer, renderFormat);
-            htmlDoc = Html.createDocumentContainer(renderDimensions.full);
-            Html.addHTMLObject(header, htmlDoc, renderDimensions.header);
-            var container = Html.createMapContainer(htmlDoc, renderDimensions.map);
-            Html.addHTMLObject(footer, htmlDoc, renderDimensions.footer);
-
-            _decreaseDpiToValidValue(renderDimensions.map, map);
+            htmlDoc = Html.createDocumentContainer(renderFormat);
+            Html.addHTMLObject(header, htmlDoc, renderFormat);
+            var container = Html.createMapContainer(htmlDoc);
+            Html.addHTMLObject(footer, htmlDoc, renderFormat);
+            
+            var mapDimens = new Dimens(container.scrollWidth, container.scrollHeight, UNITS.Pixels);
+            _decreaseDpiToValidValue(mapDimens, map);
+            Html.replaceSvgSources(htmlDoc, RENDER_SCALE);
             return container;
         };
 

@@ -100,10 +100,10 @@ function getStyle(elem) {
         };
 
     // other browsers
-    } else if (document.defaultView &&
-    document.defaultView.getComputedStyle) {
+    } else if (elem.ownerDocument.defaultView &&
+        elem.ownerDocument.defaultView.getComputedStyle) {
         return {
-            style: document.defaultView.getComputedStyle(elem),
+            style: elem.ownerDocument.defaultView.getComputedStyle(elem),
             snakeCase: true
         };
     } else {

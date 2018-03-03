@@ -46,7 +46,6 @@ function calculateMaximumDpi(size, map, dpi) {
 
 function waitForMapToRender(map) {
     var noneLoaded = false;
-    var initial = true;
     return new Promise(function (resolve) {
         var quiesce = function () {
             if (!noneLoaded || (!map.loaded() || !map.isStyleLoaded() || !map.areTilesLoaded())) {
@@ -59,12 +58,9 @@ function waitForMapToRender(map) {
         };
         var renderListener = function () {
             noneLoaded = false;
-            if (initial && map.loaded() && map.isStyleLoaded() && map.areTilesLoaded()) {
-                initial = false;
-                quiesce();
-            }
         };
         map.on('render', renderListener);
+        quiesce();
     });
 
 }
@@ -96,7 +92,6 @@ function createPrintMap(map, mapboxgl, container) {
                 style: map.getStyle(),
                 bearing: map.getBearing(),
                 maxZoom: 24,
-                minBounds: map.getBounds(),
                 pitch: map.getPitch(),
                 interactive: false,
                 attributionControl: false,

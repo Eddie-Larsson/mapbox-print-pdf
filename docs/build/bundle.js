@@ -4,31 +4,31 @@ var mapPrint = require('../../js/mapbox-print-pdf.js');
 require('@webcomponents/template');
 var map;
 
-mapboxgl.accessToken = 'pk.eyJ1IjoiZGVtb2FjY291bnQxMiIsImEiOiJjamUzZTQwMTIyNmQyMzRvNm53NDJ4emdmIn0.4MH5FDzsJT37L2GFZxUIjw'
+mapboxgl.accessToken = 'pk.eyJ1IjoiZGVtb2FjY291bnQxMiIsImEiOiJjamUzZTQwMTIyNmQyMzRvNm53NDJ4emdmIn0.4MH5FDzsJT37L2GFZxUIjw';
 
 function setFormat(builder) {
     var format = $('#formatInp').val();
-    if(format != '') builder.format(format);
+    if (format != '') builder.format(format);
 }
 
 function setDPI(builder) {
     var dpi = parseInt(($('#dpiInp').val()));
-    if(!isNaN(dpi) && dpi > 0) builder.dpi(dpi);
+    if (!isNaN(dpi) && dpi > 0) builder.dpi(dpi);
 }
 
 function setOrientation(builder) {
     var orientation = $('#orientationInp').val();
-    if(orientation === 'l') builder.landscape();
+    if (orientation === 'l') builder.landscape();
 }
 
 function setHeader(builder) {
     var header = $('#headerHtmlInp').val();
-    if(header == null || header.trim() === '') return;
+    if (header == null || header.trim() === '') return;
     var height = parseInt($('#headerHeightInp').val());
-    if(height < 1) return;
+    if (height < 1) return;
     var heightUnit = $('#headerHeightUnitInp').val();
     var baseline = $('#headerBaselineFormatInp').val();
-    if(baseline.trim() == '') return;
+    if (baseline.trim() == '') return;
     var orientation = $('#headerBaselineOrientationInp').val();
     builder.header({
         html: header,
@@ -45,12 +45,12 @@ function setHeader(builder) {
 
 function setFooter(builder) {
     var footer = $('#footerHtmlInp').val();
-    if(footer == null || footer.trim() === '') return;
+    if (footer == null || footer.trim() === '') return;
     var height = parseInt($('#footerHeightInp').val());
-    if(height < 1) return;
+    if (height < 1) return;
     var heightUnit = $('#footerHeightUnitInp').val();
     var baseline = $('#footerBaselineFormatInp').val();
-    if(baseline.trim() == '') return;
+    if (baseline.trim() == '') return;
     var orientation = $('#footerBaselineOrientationInp').val();
     builder.footer({
         html: footer,
@@ -67,13 +67,13 @@ function setFooter(builder) {
 
 function setScaleControl(builder) {
     var maxWidth = parseInt($('#scaleMaxWidthInp').val());
-    if(isNaN(maxWidth) || maxWidth <= 0) return;
+    if (isNaN(maxWidth) || maxWidth <= 0) return;
     var unit = $('#scaleUnitInp').val();
-    builder.scale({maxWidthPercent: maxWidth, unit: unit});
+    builder.scale({ maxWidthPercent: maxWidth, unit: unit });
 }
 
 function getMargin(id) {
-    var val = parseInt($('#'+id).val());
+    var val = parseInt($('#' + id).val());
     return isNaN(val) || val < 0 ? 0 : val;
 }
 
@@ -99,9 +99,9 @@ function hideProgress() {
 }
 function printMap(e) {
     e.preventDefault();
-  
+
     showProgress();
-  
+
     var builder = mapPrint.build();
     setFormat(builder);
     setDPI(builder);
@@ -110,12 +110,11 @@ function printMap(e) {
     setFooter(builder);
     setScaleControl(builder);
     setMargins(builder);
-    
     builder.print(map, mapboxgl)
         .then(displayPdf)
         .then(hideProgress);
 }
-$(function() {
+$(function () {
     map = new mapboxgl.Map({
         container: 'map',
         style: 'mapbox://styles/mapbox/streets-v9',
@@ -130,7 +129,7 @@ $(function() {
     $('#printForm').on('submit', printMap);
 });
 
-},{"../../js/mapbox-print-pdf.js":6,"@webcomponents/template":9,"mapbox-gl":68}],2:[function(require,module,exports){
+},{"../../js/mapbox-print-pdf.js":6,"@webcomponents/template":9,"mapbox-gl":71}],2:[function(require,module,exports){
 /*
  * Mapbox Print Pdf - Printing PDFs with high resolution mapbox maps
  * Copyright (c) 2018 Eddie Larsson
@@ -499,75 +498,88 @@ module.exports = FormatConfig;
 },{"./dimensions.js":2}],4:[function(require,module,exports){
 var check = require('./type-check.js');
 var dimensions = require('./dimensions.js');
+var cssInitials = require('css-initials');
 var Dimens = dimensions.Dimens;
-var Size = dimensions.Size;
 var UNITS = dimensions.UNITS;
+var CONTAINER_CLASS = '__mapbox-print-pdf-container__';
+var ATTR_PRESERVE_CSS = 'data-mpp-preserve';
+var DEFAULT_FONT = '"Times New Roman", Times, serif';
 var scaleElement = require('./scale-element.js');
+var canvg = require('canvg');
 
-var HIDDEN_CONTAINER_STYLE = 'overflow: hidden; height: 0; width: 0; position: fixed;';
+var HIDDEN_CONTAINER_STYLE = {overflow: 'hidden', height: 0, width: 0, position: 'fixed', top:0, left:0};
 
-var HtmlObject = (function() {
-    var constructor = function(html, height, baseline, handlers) {
-        var heightPercent = height.value()/baseline.height();
+var HtmlObject = (function () {
+    var constructor = function (html, baseline, handlers) {
         handlers = check.isObject(handlers) ? handlers : {};
-        baseline = new Dimens(baseline.width(), baseline.height()*heightPercent, baseline.unit());
-        this.html = function() { return html; };
-        this.height = function() { return height; };
-        this.baseline = function() { return baseline; };
-        this.handlers = function() { return handlers; };
-        this.heightPercent = function() { return heightPercent; };
+        this.html = function () { return html; };
+        this.baseline = function () { return baseline; };
+        this.handlers = function () { return handlers; };
     };
 
-    var _getBaseline = function(baseline, formatConfig) {
+    var _getBaseline = function (baseline, formatConfig) {
         var result = null;
-        if(check.isObject(baseline)
-    && baseline.hasOwnProperty('format')
-    && (check.isString(baseline.format) || Dimens.isValidDimensionObject(baseline.format))) {
-            if(check.isString(baseline.format)) {
+        if (check.isObject(baseline)
+            && baseline.hasOwnProperty('format')
+            && (check.isString(baseline.format) || Dimens.isValidDimensionObject(baseline.format))) {
+            if (check.isString(baseline.format)) {
                 result = formatConfig.getFormat(baseline.format);
             } else {
                 result = Dimens.toDimension(baseline.format);
             }
-            if(baseline.orientation === 'l') {
+            if (baseline.orientation === 'l') {
                 result = new Dimens(result.height(), result.width(), result.unit());
             }
-        } else if(check.isString(baseline) && formatConfig.formatExists(baseline)) {
+        } else if (check.isString(baseline) && formatConfig.formatExists(baseline)) {
             result = formatConfig.getFormat(baseline);
         }
         return result;
     };
-    constructor.from = function(obj, formatConfig) {
-        if(!obj.hasOwnProperty('html')
-    || !obj.hasOwnProperty('height')
-    || !obj.hasOwnProperty('baseline')) {
+    constructor.from = function (obj, formatConfig) {
+        if (!obj.hasOwnProperty('html')
+            || !obj.hasOwnProperty('baseline')) {
             console.error('Missing a required property in the html object');
             return null;
         }
         var html = createOrReturnHTML(obj.html);
-        if(html === null) {
+        if (html === null) {
             console.error('Html property couldn\'t be parsed to an html object');
             console.error(obj.baseline);
             return null;
         }
-        var height = Size.from(obj.height);
-        if(height === null) {
-            console.error('Couldn\'t parse the height property of the html object');
-            console.error(obj.height);
-            return null;
-        }
         var baseline = _getBaseline(obj.baseline, formatConfig);
-        if(baseline === null) {
+        if (baseline === null) {
             console.error('Couldn\'t parse the baseline property of the html object');
             console.error(obj.baseline);
             return null;
         }
-        return new HtmlObject(html, height, baseline);
+        return new HtmlObject(html, baseline, obj.handlers);
     };
     return constructor;
 })();
 
+var cloneObject = function(obj) {
+    var clone = {};
+    for(var prop in obj) {
+        if(obj.hasOwnProperty(prop)) clone[prop] = obj[prop];
+    }
+    return clone;
+};
 
-var createOrReturnHTML = function(html) {
+var buildStyleStringFromObject = function(obj, override) {
+    var style = '';
+    obj = cloneObject(obj);
+    for(var prop in override) {
+        if(override.hasOwnProperty(prop)) obj[prop] = override[prop];
+    }
+    for(prop in obj) {
+        if(obj.hasOwnProperty(prop)) {
+            style += prop + ': ' + obj[prop] + ';';
+        }
+    }
+    return style;
+};
+var createOrReturnHTML = function (html) {
     if (check.isString(html)) {
         var template = document.createElement('template');
         html = html.trim();
@@ -581,24 +593,48 @@ var createOrReturnHTML = function(html) {
     }
 };
 
-var createDocumentContainer = function(dimens) {
+var removeStylesExceptMapbox = function (doc) {
+    var links = Array.prototype.slice.call(doc.getElementsByTagName('LINK'));
+    for (var i = 0; i < links.length; ++i) {
+        var link = links[i];
+        if (link.tagName != 'LINK' || link.href.indexOf('mapbox') != -1 || link.hasAttribute(ATTR_PRESERVE_CSS)) continue;
+        link.parentNode.removeChild(link);
+    }
+};
+
+var clearBodyExceptContainer = function(doc) {
+    var children = Array.prototype.slice.call(doc.body.children);
+    for (var i = 0; i < children.length; ++i) {
+        var child = children[i];
+        if(child.tagName == 'STYLE') continue;
+        if (child.className.indexOf(CONTAINER_CLASS) != -1)  continue;
+        child.parentNode.removeChild(child);
+    }
+};
+
+var createDocumentContainer = function (dimens) {
     dimens = dimens.to(UNITS.Pixels);
     var hidden = document.createElement('div');
-    hidden.setAttribute('style', HIDDEN_CONTAINER_STYLE);
+    hidden.className = CONTAINER_CLASS;
+    hidden.setAttribute('style', buildStyleStringFromObject(HIDDEN_CONTAINER_STYLE));
     var doc = document.createElement('div');
+    doc.setAttribute('style', buildStyleStringFromObject(cssInitials));
     doc.style.width = dimens.width() + dimens.unit();
     doc.style.height = dimens.height() + dimens.unit();
+    doc.style.fontFamily = DEFAULT_FONT;
+    doc.style.display = 'table';
     hidden.appendChild(doc);
     document.body.appendChild(hidden);
     return doc;
 };
 
-var addHTMLObject = function(htmlObj, container, dimens) {
-    if(htmlObj instanceof HtmlObject) {
+var addHTMLObject = function (htmlObj, container, dimens) {
+    if (htmlObj instanceof HtmlObject) {
         dimens = dimens.to(UNITS.Pixels);
         var htmlContainer = document.createElement('div');
         htmlContainer.style.width = dimens.width() + dimens.unit();
-        htmlContainer.style.height = dimens.height() + dimens.unit();
+        htmlContainer.style.height = 'auto';
+        htmlContainer.style.overflow = 'hidden';
         htmlContainer.appendChild(htmlObj.html());
         container.appendChild(htmlContainer);
         scaleElement(htmlObj.html(), htmlObj.handlers(), htmlObj.baseline(), dimens);
@@ -606,24 +642,43 @@ var addHTMLObject = function(htmlObj, container, dimens) {
     return htmlObj;
 };
 
-var createMapContainer = function(container, dimens) {
+var createMapContainer = function (container) {
     var mapContainer = document.createElement('div');
-    dimens = dimens.to(UNITS.Pixels);
-    mapContainer.style.width = dimens.width() + dimens.unit();
-    mapContainer.style.height = dimens.height() + dimens.unit();
-    container.appendChild(mapContainer);
+    var tableRow = document.createElement('div');
+    tableRow.style.display = 'table-row';
+    tableRow.style.height = '100%';
+    mapContainer.style.display = 'table-cell';
+    tableRow.appendChild(mapContainer);
+    container.appendChild(tableRow);
     return mapContainer;
 };
+
+var replaceSvgSources = function(container, scaleFactor) {
+    var images = Array.prototype.slice.call(container.getElementsByTagName('img'));
+    for(var i = 0; i < images.length; ++i) {
+        var image = images[i];
+        if(image.src.indexOf('.svg') === -1) continue;
+        var canvas = document.createElement('canvas');
+        canvas.width = image.scrollWidth*scaleFactor;
+        canvas.height = image.scrollHeight*scaleFactor;
+        canvg(canvas, image.src);
+        image.src = canvas.toDataURL('image/png');
+    }
+};
+
 
 module.exports = {
     createMapContainer: createMapContainer,
     addHTMLObject: addHTMLObject,
     createDocumentContainer: createDocumentContainer,
     createOrReturnHTML: createOrReturnHTML,
-    HtmlObject: HtmlObject
+    HtmlObject: HtmlObject,
+    removeStylesExceptMapbox: removeStylesExceptMapbox,
+    clearBodyExceptContainer: clearBodyExceptContainer,
+    replaceSvgSources: replaceSvgSources
 };
 
-},{"./dimensions.js":2,"./scale-element.js":7,"./type-check.js":8}],5:[function(require,module,exports){
+},{"./dimensions.js":2,"./scale-element.js":7,"./type-check.js":8,"canvg":10,"css-initials":12}],5:[function(require,module,exports){
 
 var check = require('./type-check.js');
 var UNITS = require('./dimensions.js').UNITS;
@@ -672,7 +727,6 @@ function calculateMaximumDpi(size, map, dpi) {
 
 function waitForMapToRender(map) {
     var noneLoaded = false;
-    var initial = true;
     return new Promise(function (resolve) {
         var quiesce = function () {
             if (!noneLoaded || (!map.loaded() || !map.isStyleLoaded() || !map.areTilesLoaded())) {
@@ -685,12 +739,9 @@ function waitForMapToRender(map) {
         };
         var renderListener = function () {
             noneLoaded = false;
-            if (initial && map.loaded() && map.isStyleLoaded() && map.areTilesLoaded()) {
-                initial = false;
-                quiesce();
-            }
         };
         map.on('render', renderListener);
+        quiesce();
     });
 
 }
@@ -722,7 +773,6 @@ function createPrintMap(map, mapboxgl, container) {
                 style: map.getStyle(),
                 bearing: map.getBearing(),
                 maxZoom: 24,
-                minBounds: map.getBounds(),
                 pitch: map.getPitch(),
                 interactive: false,
                 attributionControl: false,
@@ -783,29 +833,13 @@ var Size = dimensions.Size;
 
 var HtmlObject = Html.HtmlObject;
 var UNITS = dimensions.UNITS;
+var RENDER_SCALE = 2;
 
 function getOrientedDimensions(dimensions, orientation) {
     if (orientation == 'l') {
         return new Dimens(dimensions.height(), dimensions.width(), dimensions.unit());
     }
     return dimensions;
-}
-
-function subdivideRenderFormat(header, footer, renderFormat) {
-    var renderDimensions = {full: renderFormat};
-    var mapPercent = 1;
-    if(header) {
-        renderDimensions.header = new Dimens(renderFormat.width(), renderFormat.height()*header.heightPercent(), renderFormat.unit());
-        mapPercent -= header.heightPercent();
-    }
-    if(footer) {
-        renderDimensions.footer = new Dimens(renderFormat.width(), renderFormat.height()*footer.heightPercent(), renderFormat.unit());
-        mapPercent -= footer.heightPercent();
-    }
-    renderDimensions.map = new Dimens(renderFormat.width(), renderFormat.height()*mapPercent, renderFormat.unit());
-    renderDimensions.mapPercent = mapPercent;
-
-    return renderDimensions;
 }
 
 function getRenderFormat(format, orientation, margins) {
@@ -839,6 +873,7 @@ var PdfBuilder = (function() {
                 }
             });
         };
+        
 
         var _printMap = function() {
             return new Promise(function(resolve, reject) {
@@ -855,7 +890,7 @@ var PdfBuilder = (function() {
                 var writeCanvasToPdf = function(canvas) {
                     var renderFormat = getRenderFormat(format, orientation, convMargins);
                     try {
-                        pdf.addImage(canvas, 'png', convMargins.left(), convMargins.top(),
+                        pdf.addImage(canvas.toDataURL('image/jpeg', 1), 'JPEG', convMargins.left(), convMargins.top(),
                             renderFormat.width(),
                             renderFormat.height(), null, 'FAST');
                         resolve(pdf);
@@ -863,11 +898,17 @@ var PdfBuilder = (function() {
                         reject(err);
                     }
                 };
+
+                var whenCloned = function(doc) {
+                    Html.removeStylesExceptMapbox(doc);
+                    Html.clearBodyExceptContainer(doc);
+                };
                 html2canvas(htmlDoc, {
                     letterRendering: true,
                     useCORS: true,
-                    scale: 2,
-                    allowTaint: true
+                    scale: RENDER_SCALE,
+                    allowTaint: true,
+                    onclone: whenCloned
                 }).then(writeCanvasToPdf, reject);
             });
         };
@@ -900,13 +941,14 @@ var PdfBuilder = (function() {
             });
 
             var renderFormat = getRenderFormat(format, orientation, margins);
-            var renderDimensions = subdivideRenderFormat(header, footer, renderFormat);
-            htmlDoc = Html.createDocumentContainer(renderDimensions.full);
-            Html.addHTMLObject(header, htmlDoc, renderDimensions.header);
-            var container = Html.createMapContainer(htmlDoc, renderDimensions.map);
-            Html.addHTMLObject(footer, htmlDoc, renderDimensions.footer);
-
-            _decreaseDpiToValidValue(renderDimensions.map, map);
+            htmlDoc = Html.createDocumentContainer(renderFormat);
+            Html.addHTMLObject(header, htmlDoc, renderFormat);
+            var container = Html.createMapContainer(htmlDoc);
+            Html.addHTMLObject(footer, htmlDoc, renderFormat);
+            
+            var mapDimens = new Dimens(container.scrollWidth, container.scrollHeight, UNITS.Pixels);
+            _decreaseDpiToValidValue(mapDimens, map);
+            Html.replaceSvgSources(htmlDoc, RENDER_SCALE);
             return container;
         };
 
@@ -1046,7 +1088,7 @@ module.exports = {
     build: function() { return new PdfBuilder(); }
 };
 
-},{"./dimensions.js":2,"./format-config.js":3,"./html-container.js":4,"./map-utils.js":5,"./type-check.js":8,"html2canvas":43,"jspdf":67}],7:[function(require,module,exports){
+},{"./dimensions.js":2,"./format-config.js":3,"./html-container.js":4,"./map-utils.js":5,"./type-check.js":8,"html2canvas":46,"jspdf":70}],7:[function(require,module,exports){
 /*
  * Mapbox Print Pdf - Printing PDFs with high resolution mapbox maps
  * Copyright (c) 2018 Eddie Larsson
@@ -1149,10 +1191,10 @@ function getStyle(elem) {
         };
 
     // other browsers
-    } else if (document.defaultView &&
-    document.defaultView.getComputedStyle) {
+    } else if (elem.ownerDocument.defaultView &&
+        elem.ownerDocument.defaultView.getComputedStyle) {
         return {
-            style: document.defaultView.getComputedStyle(elem),
+            style: elem.ownerDocument.defaultView.getComputedStyle(elem),
             snakeCase: true
         };
     } else {
@@ -1700,6 +1742,3372 @@ module.exports = {
 })();
 
 },{}],10:[function(require,module,exports){
+/*
+ * canvg.js - Javascript SVG parser and renderer on Canvas
+ * MIT Licensed
+ * Gabe Lerner (gabelerner@gmail.com)
+ * http://code.google.com/p/canvg/
+ *
+ * Requires: rgbcolor.js - http://www.phpied.com/rgb-color-parser-in-javascript/
+ */
+ (function ( global, factory ) {
+
+	'use strict';
+
+	// export as AMD...
+	if ( typeof define !== 'undefined' && define.amd ) {
+		define('canvgModule', [ 'rgbcolor', 'stackblur' ], factory );
+	}
+
+	// ...or as browserify
+	else if ( typeof module !== 'undefined' && module.exports ) {
+		module.exports = factory( require( 'rgbcolor' ), require( 'stackblur' ) );
+	}
+
+	global.canvg = factory( global.RGBColor, global.stackBlur );
+
+}( typeof window !== 'undefined' ? window : this, function ( RGBColor, stackBlur ) {
+
+	// canvg(target, s)
+	// empty parameters: replace all 'svg' elements on page with 'canvas' elements
+	// target: canvas element or the id of a canvas element
+	// s: svg string, url to svg file, or xml document
+	// opts: optional hash of options
+	//		 ignoreMouse: true => ignore mouse events
+	//		 ignoreAnimation: true => ignore animations
+	//		 ignoreDimensions: true => does not try to resize canvas
+	//		 ignoreClear: true => does not clear canvas
+	//		 offsetX: int => draws at a x offset
+	//		 offsetY: int => draws at a y offset
+	//		 scaleWidth: int => scales horizontally to width
+	//		 scaleHeight: int => scales vertically to height
+	//		 renderCallback: function => will call the function after the first render is completed
+	//		 forceRedraw: function => will call the function on every frame, if it returns true, will redraw
+	var canvg = function (target, s, opts) {
+		// no parameters
+		if (target == null && s == null && opts == null) {
+			var svgTags = document.querySelectorAll('svg');
+			for (var i=0; i<svgTags.length; i++) {
+				var svgTag = svgTags[i];
+				var c = document.createElement('canvas');
+				c.width = svgTag.clientWidth;
+				c.height = svgTag.clientHeight;
+				svgTag.parentNode.insertBefore(c, svgTag);
+				svgTag.parentNode.removeChild(svgTag);
+				var div = document.createElement('div');
+				div.appendChild(svgTag);
+				canvg(c, div.innerHTML);
+			}
+			return;
+		}
+
+		if (typeof target == 'string') {
+			target = document.getElementById(target);
+		}
+
+		// store class on canvas
+		if (target.svg != null) target.svg.stop();
+		var svg = build(opts || {});
+		// on i.e. 8 for flash canvas, we can't assign the property so check for it
+		if (!(target.childNodes.length == 1 && target.childNodes[0].nodeName == 'OBJECT')) target.svg = svg;
+
+		var ctx = target.getContext('2d');
+		if (typeof s.documentElement != 'undefined') {
+			// load from xml doc
+			svg.loadXmlDoc(ctx, s);
+		}
+		else if (s.substr(0,1) == '<') {
+			// load from xml string
+			svg.loadXml(ctx, s);
+		}
+		else {
+			// load from url
+			svg.load(ctx, s);
+		}
+	}
+
+	// see https://developer.mozilla.org/en-US/docs/Web/API/Element.matches
+	var matchesSelector;
+	if (typeof Element.prototype.matches != 'undefined') {
+		matchesSelector = function(node, selector) {
+			return node.matches(selector);
+		};
+	} else if (typeof Element.prototype.webkitMatchesSelector != 'undefined') {
+		matchesSelector = function(node, selector) {
+			return node.webkitMatchesSelector(selector);
+		};
+	} else if (typeof Element.prototype.mozMatchesSelector != 'undefined') {
+		matchesSelector = function(node, selector) {
+			return node.mozMatchesSelector(selector);
+		};
+	} else if (typeof Element.prototype.msMatchesSelector != 'undefined') {
+		matchesSelector = function(node, selector) {
+			return node.msMatchesSelector(selector);
+		};
+	} else if (typeof Element.prototype.oMatchesSelector != 'undefined') {
+		matchesSelector = function(node, selector) {
+			return node.oMatchesSelector(selector);
+		};
+	} else {
+		// requires Sizzle: https://github.com/jquery/sizzle/wiki/Sizzle-Documentation
+		// or jQuery: http://jquery.com/download/
+		// or Zepto: http://zeptojs.com/#
+		// without it, this is a ReferenceError
+
+		if (typeof jQuery === 'function' || typeof Zepto === 'function') {
+			matchesSelector = function (node, selector) {
+				return $(node).is(selector);
+			};
+		}
+
+		if (typeof matchesSelector === 'undefined') {
+			matchesSelector = Sizzle.matchesSelector;
+		}
+	}
+
+	// slightly modified version of https://github.com/keeganstreet/specificity/blob/master/specificity.js
+	var attributeRegex = /(\[[^\]]+\])/g;
+	var idRegex = /(#[^\s\+>~\.\[:]+)/g;
+	var classRegex = /(\.[^\s\+>~\.\[:]+)/g;
+	var pseudoElementRegex = /(::[^\s\+>~\.\[:]+|:first-line|:first-letter|:before|:after)/gi;
+	var pseudoClassWithBracketsRegex = /(:[\w-]+\([^\)]*\))/gi;
+	var pseudoClassRegex = /(:[^\s\+>~\.\[:]+)/g;
+	var elementRegex = /([^\s\+>~\.\[:]+)/g;
+	function getSelectorSpecificity(selector) {
+		var typeCount = [0, 0, 0];
+		var findMatch = function(regex, type) {
+			var matches = selector.match(regex);
+			if (matches == null) {
+				return;
+			}
+			typeCount[type] += matches.length;
+			selector = selector.replace(regex, ' ');
+		};
+
+		selector = selector.replace(/:not\(([^\)]*)\)/g, '     $1 ');
+		selector = selector.replace(/{[\s\S]*/gm, ' ');
+		findMatch(attributeRegex, 1);
+		findMatch(idRegex, 0);
+		findMatch(classRegex, 1);
+		findMatch(pseudoElementRegex, 2);
+		findMatch(pseudoClassWithBracketsRegex, 1);
+		findMatch(pseudoClassRegex, 1);
+		selector = selector.replace(/[\*\s\+>~]/g, ' ');
+		selector = selector.replace(/[#\.]/g, ' ');
+		findMatch(elementRegex, 2);
+		return typeCount.join('');
+	}
+
+	function build(opts) {
+		var svg = { opts: opts };
+
+		svg.FRAMERATE = 30;
+		svg.MAX_VIRTUAL_PIXELS = 30000;
+
+		svg.log = function(msg) {};
+		if (svg.opts['log'] == true && typeof console != 'undefined') {
+			svg.log = function(msg) { console.log(msg); };
+		};
+
+		// globals
+		svg.init = function(ctx) {
+			var uniqueId = 0;
+			svg.UniqueId = function () { uniqueId++; return 'canvg' + uniqueId;	};
+			svg.Definitions = {};
+			svg.Styles = {};
+			svg.StylesSpecificity = {};
+			svg.Animations = [];
+			svg.Images = [];
+			svg.ctx = ctx;
+			svg.ViewPort = new (function () {
+				this.viewPorts = [];
+				this.Clear = function() { this.viewPorts = []; }
+				this.SetCurrent = function(width, height) { this.viewPorts.push({ width: width, height: height }); }
+				this.RemoveCurrent = function() { this.viewPorts.pop(); }
+				this.Current = function() { return this.viewPorts[this.viewPorts.length - 1]; }
+				this.width = function() { return this.Current().width; }
+				this.height = function() { return this.Current().height; }
+				this.ComputeSize = function(d) {
+					if (d != null && typeof d == 'number') return d;
+					if (d == 'x') return this.width();
+					if (d == 'y') return this.height();
+					return Math.sqrt(Math.pow(this.width(), 2) + Math.pow(this.height(), 2)) / Math.sqrt(2);
+				}
+			});
+		}
+		svg.init();
+
+		// images loaded
+		svg.ImagesLoaded = function() {
+			for (var i=0; i<svg.Images.length; i++) {
+				if (!svg.Images[i].loaded) return false;
+			}
+			return true;
+		}
+
+		// trim
+		svg.trim = function(s) { return s.replace(/^\s+|\s+$/g, ''); }
+
+		// compress spaces
+		svg.compressSpaces = function(s) { return s.replace(/[\s\r\t\n]+/gm,' '); }
+
+		// ajax
+		svg.ajax = function(url) {
+			var AJAX;
+			if(window.XMLHttpRequest){AJAX=new XMLHttpRequest();}
+			else{AJAX=new ActiveXObject('Microsoft.XMLHTTP');}
+			if(AJAX){
+			   AJAX.open('GET',url,false);
+			   AJAX.send(null);
+			   return AJAX.responseText;
+			}
+			return null;
+		}
+
+		// parse xml
+		svg.parseXml = function(xml) {
+			if (typeof Windows != 'undefined' && typeof Windows.Data != 'undefined' && typeof Windows.Data.Xml != 'undefined') {
+				var xmlDoc = new Windows.Data.Xml.Dom.XmlDocument();
+				var settings = new Windows.Data.Xml.Dom.XmlLoadSettings();
+				settings.prohibitDtd = false;
+				xmlDoc.loadXml(xml, settings);
+				return xmlDoc;
+			}
+			else if (window.DOMParser)
+			{
+				try {
+					var parser = new DOMParser();
+					return parser.parseFromString(xml, 'image/svg+xml');
+				}
+				catch(e){
+					parser = new DOMParser();
+					return parser.parseFromString(xml, 'text/xml');
+				}
+			}
+			else
+			{
+				xml = xml.replace(/<!DOCTYPE svg[^>]*>/, '');
+				var xmlDoc = new ActiveXObject('Microsoft.XMLDOM');
+				xmlDoc.async = 'false';
+				xmlDoc.loadXML(xml);
+				return xmlDoc;
+			}
+		}
+
+		svg.Property = function(name, value) {
+			this.name = name;
+			this.value = value;
+		}
+			svg.Property.prototype.getValue = function() {
+				return this.value;
+			}
+
+			svg.Property.prototype.hasValue = function() {
+				return (this.value != null && this.value !== '');
+			}
+
+			// return the numerical value of the property
+			svg.Property.prototype.numValue = function() {
+				if (!this.hasValue()) return 0;
+
+				var n = parseFloat(this.value);
+				if ((this.value + '').match(/%$/)) {
+					n = n / 100.0;
+				}
+				return n;
+			}
+
+			svg.Property.prototype.valueOrDefault = function(def) {
+				if (this.hasValue()) return this.value;
+				return def;
+			}
+
+			svg.Property.prototype.numValueOrDefault = function(def) {
+				if (this.hasValue()) return this.numValue();
+				return def;
+			}
+
+			// color extensions
+				// augment the current color value with the opacity
+				svg.Property.prototype.addOpacity = function(opacityProp) {
+					var newValue = this.value;
+					if (opacityProp.value != null && opacityProp.value != '' && typeof this.value == 'string') { // can only add opacity to colors, not patterns
+						var color = new RGBColor(this.value);
+						if (color.ok) {
+							newValue = 'rgba(' + color.r + ', ' + color.g + ', ' + color.b + ', ' + opacityProp.numValue() + ')';
+						}
+					}
+					return new svg.Property(this.name, newValue);
+				}
+
+			// definition extensions
+				// get the definition from the definitions table
+				svg.Property.prototype.getDefinition = function() {
+					var name = this.value.match(/#([^\)'"]+)/);
+					if (name) { name = name[1]; }
+					if (!name) { name = this.value; }
+					return svg.Definitions[name];
+				}
+
+				svg.Property.prototype.isUrlDefinition = function() {
+					return this.value.indexOf('url(') == 0
+				}
+
+				svg.Property.prototype.getFillStyleDefinition = function(e, opacityProp) {
+					var def = this.getDefinition();
+
+					// gradient
+					if (def != null && def.createGradient) {
+						return def.createGradient(svg.ctx, e, opacityProp);
+					}
+
+					// pattern
+					if (def != null && def.createPattern) {
+						if (def.getHrefAttribute().hasValue()) {
+							var pt = def.attribute('patternTransform');
+							def = def.getHrefAttribute().getDefinition();
+							if (pt.hasValue()) { def.attribute('patternTransform', true).value = pt.value; }
+						}
+						return def.createPattern(svg.ctx, e);
+					}
+
+					return null;
+				}
+
+			// length extensions
+				svg.Property.prototype.getDPI = function(viewPort) {
+					return 96.0; // TODO: compute?
+				}
+
+				svg.Property.prototype.getEM = function(viewPort) {
+					var em = 12;
+
+					var fontSize = new svg.Property('fontSize', svg.Font.Parse(svg.ctx.font).fontSize);
+					if (fontSize.hasValue()) em = fontSize.toPixels(viewPort);
+
+					return em;
+				}
+
+				svg.Property.prototype.getUnits = function() {
+					var s = this.value+'';
+					return s.replace(/[0-9\.\-]/g,'');
+				}
+
+				// get the length as pixels
+				svg.Property.prototype.toPixels = function(viewPort, processPercent) {
+					if (!this.hasValue()) return 0;
+					var s = this.value+'';
+					if (s.match(/em$/)) return this.numValue() * this.getEM(viewPort);
+					if (s.match(/ex$/)) return this.numValue() * this.getEM(viewPort) / 2.0;
+					if (s.match(/px$/)) return this.numValue();
+					if (s.match(/pt$/)) return this.numValue() * this.getDPI(viewPort) * (1.0 / 72.0);
+					if (s.match(/pc$/)) return this.numValue() * 15;
+					if (s.match(/cm$/)) return this.numValue() * this.getDPI(viewPort) / 2.54;
+					if (s.match(/mm$/)) return this.numValue() * this.getDPI(viewPort) / 25.4;
+					if (s.match(/in$/)) return this.numValue() * this.getDPI(viewPort);
+					if (s.match(/%$/)) return this.numValue() * svg.ViewPort.ComputeSize(viewPort);
+					var n = this.numValue();
+					if (processPercent && n < 1.0) return n * svg.ViewPort.ComputeSize(viewPort);
+					return n;
+				}
+
+			// time extensions
+				// get the time as milliseconds
+				svg.Property.prototype.toMilliseconds = function() {
+					if (!this.hasValue()) return 0;
+					var s = this.value+'';
+					if (s.match(/s$/)) return this.numValue() * 1000;
+					if (s.match(/ms$/)) return this.numValue();
+					return this.numValue();
+				}
+
+			// angle extensions
+				// get the angle as radians
+				svg.Property.prototype.toRadians = function() {
+					if (!this.hasValue()) return 0;
+					var s = this.value+'';
+					if (s.match(/deg$/)) return this.numValue() * (Math.PI / 180.0);
+					if (s.match(/grad$/)) return this.numValue() * (Math.PI / 200.0);
+					if (s.match(/rad$/)) return this.numValue();
+					return this.numValue() * (Math.PI / 180.0);
+				}
+
+			// text extensions
+				// get the text baseline
+				var textBaselineMapping = {
+					'baseline': 'alphabetic',
+					'before-edge': 'top',
+					'text-before-edge': 'top',
+					'middle': 'middle',
+					'central': 'middle',
+					'after-edge': 'bottom',
+					'text-after-edge': 'bottom',
+					'ideographic': 'ideographic',
+					'alphabetic': 'alphabetic',
+					'hanging': 'hanging',
+					'mathematical': 'alphabetic'
+				};
+				svg.Property.prototype.toTextBaseline = function () {
+					if (!this.hasValue()) return null;
+					return textBaselineMapping[this.value];
+				}
+
+		// fonts
+		svg.Font = new (function() {
+			this.Styles = 'normal|italic|oblique|inherit';
+			this.Variants = 'normal|small-caps|inherit';
+			this.Weights = 'normal|bold|bolder|lighter|100|200|300|400|500|600|700|800|900|inherit';
+
+			this.CreateFont = function(fontStyle, fontVariant, fontWeight, fontSize, fontFamily, inherit) {
+				var f = inherit != null ? this.Parse(inherit) : this.CreateFont('', '', '', '', '', svg.ctx.font);
+				return {
+					fontFamily: fontFamily || f.fontFamily,
+					fontSize: fontSize || f.fontSize,
+					fontStyle: fontStyle || f.fontStyle,
+					fontWeight: fontWeight || f.fontWeight,
+					fontVariant: fontVariant || f.fontVariant,
+					toString: function () { return [this.fontStyle, this.fontVariant, this.fontWeight, this.fontSize, this.fontFamily].join(' ') }
+				}
+			}
+
+			var that = this;
+			this.Parse = function(s) {
+				var f = {};
+				var d = svg.trim(svg.compressSpaces(s || '')).split(' ');
+				var set = { fontSize: false, fontStyle: false, fontWeight: false, fontVariant: false }
+				var ff = '';
+				for (var i=0; i<d.length; i++) {
+					if (!set.fontStyle && that.Styles.indexOf(d[i]) != -1) { if (d[i] != 'inherit') f.fontStyle = d[i]; set.fontStyle = true; }
+					else if (!set.fontVariant && that.Variants.indexOf(d[i]) != -1) { if (d[i] != 'inherit') f.fontVariant = d[i]; set.fontStyle = set.fontVariant = true;	}
+					else if (!set.fontWeight && that.Weights.indexOf(d[i]) != -1) {	if (d[i] != 'inherit') f.fontWeight = d[i]; set.fontStyle = set.fontVariant = set.fontWeight = true; }
+					else if (!set.fontSize) { if (d[i] != 'inherit') f.fontSize = d[i].split('/')[0]; set.fontStyle = set.fontVariant = set.fontWeight = set.fontSize = true; }
+					else { if (d[i] != 'inherit') ff += d[i]; }
+				} if (ff != '') f.fontFamily = ff;
+				return f;
+			}
+		});
+
+		// points and paths
+		svg.ToNumberArray = function(s) {
+			var a = svg.trim(svg.compressSpaces((s || '').replace(/,/g, ' '))).split(' ');
+			for (var i=0; i<a.length; i++) {
+				a[i] = parseFloat(a[i]);
+			}
+			return a;
+		}
+		svg.Point = function(x, y) {
+			this.x = x;
+			this.y = y;
+		}
+			svg.Point.prototype.angleTo = function(p) {
+				return Math.atan2(p.y - this.y, p.x - this.x);
+			}
+
+			svg.Point.prototype.applyTransform = function(v) {
+				var xp = this.x * v[0] + this.y * v[2] + v[4];
+				var yp = this.x * v[1] + this.y * v[3] + v[5];
+				this.x = xp;
+				this.y = yp;
+			}
+
+		svg.CreatePoint = function(s) {
+			var a = svg.ToNumberArray(s);
+			return new svg.Point(a[0], a[1]);
+		}
+		svg.CreatePath = function(s) {
+			var a = svg.ToNumberArray(s);
+			var path = [];
+			for (var i=0; i<a.length; i+=2) {
+				path.push(new svg.Point(a[i], a[i+1]));
+			}
+			return path;
+		}
+
+		// bounding box
+		svg.BoundingBox = function(x1, y1, x2, y2) { // pass in initial points if you want
+			this.x1 = Number.NaN;
+			this.y1 = Number.NaN;
+			this.x2 = Number.NaN;
+			this.y2 = Number.NaN;
+
+			this.x = function() { return this.x1; }
+			this.y = function() { return this.y1; }
+			this.width = function() { return this.x2 - this.x1; }
+			this.height = function() { return this.y2 - this.y1; }
+
+			this.addPoint = function(x, y) {
+				if (x != null) {
+					if (isNaN(this.x1) || isNaN(this.x2)) {
+						this.x1 = x;
+						this.x2 = x;
+					}
+					if (x < this.x1) this.x1 = x;
+					if (x > this.x2) this.x2 = x;
+				}
+
+				if (y != null) {
+					if (isNaN(this.y1) || isNaN(this.y2)) {
+						this.y1 = y;
+						this.y2 = y;
+					}
+					if (y < this.y1) this.y1 = y;
+					if (y > this.y2) this.y2 = y;
+				}
+			}
+			this.addX = function(x) { this.addPoint(x, null); }
+			this.addY = function(y) { this.addPoint(null, y); }
+
+			this.addBoundingBox = function(bb) {
+				this.addPoint(bb.x1, bb.y1);
+				this.addPoint(bb.x2, bb.y2);
+			}
+
+			this.addQuadraticCurve = function(p0x, p0y, p1x, p1y, p2x, p2y) {
+				var cp1x = p0x + 2/3 * (p1x - p0x); // CP1 = QP0 + 2/3 *(QP1-QP0)
+				var cp1y = p0y + 2/3 * (p1y - p0y); // CP1 = QP0 + 2/3 *(QP1-QP0)
+				var cp2x = cp1x + 1/3 * (p2x - p0x); // CP2 = CP1 + 1/3 *(QP2-QP0)
+				var cp2y = cp1y + 1/3 * (p2y - p0y); // CP2 = CP1 + 1/3 *(QP2-QP0)
+				this.addBezierCurve(p0x, p0y, cp1x, cp2x, cp1y,	cp2y, p2x, p2y);
+			}
+
+			this.addBezierCurve = function(p0x, p0y, p1x, p1y, p2x, p2y, p3x, p3y) {
+				// from http://blog.hackers-cafe.net/2009/06/how-to-calculate-bezier-curves-bounding.html
+				var p0 = [p0x, p0y], p1 = [p1x, p1y], p2 = [p2x, p2y], p3 = [p3x, p3y];
+				this.addPoint(p0[0], p0[1]);
+				this.addPoint(p3[0], p3[1]);
+
+				for (i=0; i<=1; i++) {
+					var f = function(t) {
+						return Math.pow(1-t, 3) * p0[i]
+						+ 3 * Math.pow(1-t, 2) * t * p1[i]
+						+ 3 * (1-t) * Math.pow(t, 2) * p2[i]
+						+ Math.pow(t, 3) * p3[i];
+					}
+
+					var b = 6 * p0[i] - 12 * p1[i] + 6 * p2[i];
+					var a = -3 * p0[i] + 9 * p1[i] - 9 * p2[i] + 3 * p3[i];
+					var c = 3 * p1[i] - 3 * p0[i];
+
+					if (a == 0) {
+						if (b == 0) continue;
+						var t = -c / b;
+						if (0 < t && t < 1) {
+							if (i == 0) this.addX(f(t));
+							if (i == 1) this.addY(f(t));
+						}
+						continue;
+					}
+
+					var b2ac = Math.pow(b, 2) - 4 * c * a;
+					if (b2ac < 0) continue;
+					var t1 = (-b + Math.sqrt(b2ac)) / (2 * a);
+					if (0 < t1 && t1 < 1) {
+						if (i == 0) this.addX(f(t1));
+						if (i == 1) this.addY(f(t1));
+					}
+					var t2 = (-b - Math.sqrt(b2ac)) / (2 * a);
+					if (0 < t2 && t2 < 1) {
+						if (i == 0) this.addX(f(t2));
+						if (i == 1) this.addY(f(t2));
+					}
+				}
+			}
+
+			this.isPointInBox = function(x, y) {
+				return (this.x1 <= x && x <= this.x2 && this.y1 <= y && y <= this.y2);
+			}
+
+			this.addPoint(x1, y1);
+			this.addPoint(x2, y2);
+		}
+
+		// transforms
+		svg.Transform = function(v) {
+			var that = this;
+			this.Type = {}
+
+			// translate
+			this.Type.translate = function(s) {
+				this.p = svg.CreatePoint(s);
+				this.apply = function(ctx) {
+					ctx.translate(this.p.x || 0.0, this.p.y || 0.0);
+				}
+				this.unapply = function(ctx) {
+					ctx.translate(-1.0 * this.p.x || 0.0, -1.0 * this.p.y || 0.0);
+				}
+				this.applyToPoint = function(p) {
+					p.applyTransform([1, 0, 0, 1, this.p.x || 0.0, this.p.y || 0.0]);
+				}
+			}
+
+			// rotate
+			this.Type.rotate = function(s) {
+				var a = svg.ToNumberArray(s);
+				this.angle = new svg.Property('angle', a[0]);
+				this.cx = a[1] || 0;
+				this.cy = a[2] || 0;
+				this.apply = function(ctx) {
+					ctx.translate(this.cx, this.cy);
+					ctx.rotate(this.angle.toRadians());
+					ctx.translate(-this.cx, -this.cy);
+				}
+				this.unapply = function(ctx) {
+					ctx.translate(this.cx, this.cy);
+					ctx.rotate(-1.0 * this.angle.toRadians());
+					ctx.translate(-this.cx, -this.cy);
+				}
+				this.applyToPoint = function(p) {
+					var a = this.angle.toRadians();
+					p.applyTransform([1, 0, 0, 1, this.p.x || 0.0, this.p.y || 0.0]);
+					p.applyTransform([Math.cos(a), Math.sin(a), -Math.sin(a), Math.cos(a), 0, 0]);
+					p.applyTransform([1, 0, 0, 1, -this.p.x || 0.0, -this.p.y || 0.0]);
+				}
+			}
+
+			this.Type.scale = function(s) {
+				this.p = svg.CreatePoint(s);
+				this.apply = function(ctx) {
+					ctx.scale(this.p.x || 1.0, this.p.y || this.p.x || 1.0);
+				}
+				this.unapply = function(ctx) {
+					ctx.scale(1.0 / this.p.x || 1.0, 1.0 / this.p.y || this.p.x || 1.0);
+				}
+				this.applyToPoint = function(p) {
+					p.applyTransform([this.p.x || 0.0, 0, 0, this.p.y || 0.0, 0, 0]);
+				}
+			}
+
+			this.Type.matrix = function(s) {
+				this.m = svg.ToNumberArray(s);
+				this.apply = function(ctx) {
+					ctx.transform(this.m[0], this.m[1], this.m[2], this.m[3], this.m[4], this.m[5]);
+				}
+				this.unapply = function(ctx) {
+					var a = this.m[0];
+					var b = this.m[2];
+					var c = this.m[4];
+					var d = this.m[1];
+					var e = this.m[3];
+					var f = this.m[5];
+					var g = 0.0;
+					var h = 0.0;
+					var i = 1.0;
+					var det = 1 / (a*(e*i-f*h)-b*(d*i-f*g)+c*(d*h-e*g));
+					ctx.transform(
+						det*(e*i-f*h),
+						det*(f*g-d*i),
+						det*(c*h-b*i),
+						det*(a*i-c*g),
+						det*(b*f-c*e),
+						det*(c*d-a*f)
+					);
+				}
+				this.applyToPoint = function(p) {
+					p.applyTransform(this.m);
+				}
+			}
+
+			this.Type.SkewBase = function(s) {
+				this.base = that.Type.matrix;
+				this.base(s);
+				this.angle = new svg.Property('angle', s);
+			}
+			this.Type.SkewBase.prototype = new this.Type.matrix;
+
+			this.Type.skewX = function(s) {
+				this.base = that.Type.SkewBase;
+				this.base(s);
+				this.m = [1, 0, Math.tan(this.angle.toRadians()), 1, 0, 0];
+			}
+			this.Type.skewX.prototype = new this.Type.SkewBase;
+
+			this.Type.skewY = function(s) {
+				this.base = that.Type.SkewBase;
+				this.base(s);
+				this.m = [1, Math.tan(this.angle.toRadians()), 0, 1, 0, 0];
+			}
+			this.Type.skewY.prototype = new this.Type.SkewBase;
+
+			this.transforms = [];
+
+			this.apply = function(ctx) {
+				for (var i=0; i<this.transforms.length; i++) {
+					this.transforms[i].apply(ctx);
+				}
+			}
+
+			this.unapply = function(ctx) {
+				for (var i=this.transforms.length-1; i>=0; i--) {
+					this.transforms[i].unapply(ctx);
+				}
+			}
+
+			this.applyToPoint = function(p) {
+				for (var i=0; i<this.transforms.length; i++) {
+					this.transforms[i].applyToPoint(p);
+				}
+			}
+
+			var data = svg.trim(svg.compressSpaces(v)).replace(/\)([a-zA-Z])/g, ') $1').replace(/\)(\s?,\s?)/g,') ').split(/\s(?=[a-z])/);
+			for (var i=0; i<data.length; i++) {
+				var type = svg.trim(data[i].split('(')[0]);
+				var s = data[i].split('(')[1].replace(')','');
+				var transformType = this.Type[type];
+				if (typeof transformType != 'undefined') {
+					var transform = new transformType(s);
+					transform.type = type;
+					this.transforms.push(transform);
+				}
+			}
+		}
+
+		// aspect ratio
+		svg.AspectRatio = function(ctx, aspectRatio, width, desiredWidth, height, desiredHeight, minX, minY, refX, refY) {
+			// aspect ratio - http://www.w3.org/TR/SVG/coords.html#PreserveAspectRatioAttribute
+			aspectRatio = svg.compressSpaces(aspectRatio);
+			aspectRatio = aspectRatio.replace(/^defer\s/,''); // ignore defer
+			var align = aspectRatio.split(' ')[0] || 'xMidYMid';
+			var meetOrSlice = aspectRatio.split(' ')[1] || 'meet';
+
+			// calculate scale
+			var scaleX = width / desiredWidth;
+			var scaleY = height / desiredHeight;
+			var scaleMin = Math.min(scaleX, scaleY);
+			var scaleMax = Math.max(scaleX, scaleY);
+			if (meetOrSlice == 'meet') { desiredWidth *= scaleMin; desiredHeight *= scaleMin; }
+			if (meetOrSlice == 'slice') { desiredWidth *= scaleMax; desiredHeight *= scaleMax; }
+
+			refX = new svg.Property('refX', refX);
+			refY = new svg.Property('refY', refY);
+			if (refX.hasValue() && refY.hasValue()) {
+				ctx.translate(-scaleMin * refX.toPixels('x'), -scaleMin * refY.toPixels('y'));
+			}
+			else {
+				// align
+				if (align.match(/^xMid/) && ((meetOrSlice == 'meet' && scaleMin == scaleY) || (meetOrSlice == 'slice' && scaleMax == scaleY))) ctx.translate(width / 2.0 - desiredWidth / 2.0, 0);
+				if (align.match(/YMid$/) && ((meetOrSlice == 'meet' && scaleMin == scaleX) || (meetOrSlice == 'slice' && scaleMax == scaleX))) ctx.translate(0, height / 2.0 - desiredHeight / 2.0);
+				if (align.match(/^xMax/) && ((meetOrSlice == 'meet' && scaleMin == scaleY) || (meetOrSlice == 'slice' && scaleMax == scaleY))) ctx.translate(width - desiredWidth, 0);
+				if (align.match(/YMax$/) && ((meetOrSlice == 'meet' && scaleMin == scaleX) || (meetOrSlice == 'slice' && scaleMax == scaleX))) ctx.translate(0, height - desiredHeight);
+			}
+
+			// scale
+			if (align == 'none') ctx.scale(scaleX, scaleY);
+			else if (meetOrSlice == 'meet') ctx.scale(scaleMin, scaleMin);
+			else if (meetOrSlice == 'slice') ctx.scale(scaleMax, scaleMax);
+
+			// translate
+			ctx.translate(minX == null ? 0 : -minX, minY == null ? 0 : -minY);
+		}
+
+		// elements
+		svg.Element = {}
+
+		svg.EmptyProperty = new svg.Property('EMPTY', '');
+
+		svg.Element.ElementBase = function(node) {
+			this.attributes = {};
+			this.styles = {};
+			this.stylesSpecificity = {};
+			this.children = [];
+
+			// get or create attribute
+			this.attribute = function(name, createIfNotExists) {
+				var a = this.attributes[name];
+				if (a != null) return a;
+
+				if (createIfNotExists == true) { a = new svg.Property(name, ''); this.attributes[name] = a; }
+				return a || svg.EmptyProperty;
+			}
+
+			this.getHrefAttribute = function() {
+				for (var a in this.attributes) {
+					if (a == 'href' || a.match(/:href$/)) {
+						return this.attributes[a];
+					}
+				}
+				return svg.EmptyProperty;
+			}
+
+			// get or create style, crawls up node tree
+			this.style = function(name, createIfNotExists, skipAncestors) {
+				var s = this.styles[name];
+				if (s != null) return s;
+
+				var a = this.attribute(name);
+				if (a != null && a.hasValue()) {
+					this.styles[name] = a; // move up to me to cache
+					return a;
+				}
+
+				if (skipAncestors != true) {
+					var p = this.parent;
+					if (p != null) {
+						var ps = p.style(name);
+						if (ps != null && ps.hasValue()) {
+							return ps;
+						}
+					}
+				}
+
+				if (createIfNotExists == true) { s = new svg.Property(name, ''); this.styles[name] = s; }
+				return s || svg.EmptyProperty;
+			}
+
+			// base render
+			this.render = function(ctx) {
+				// don't render display=none
+				if (this.style('display').value == 'none') return;
+
+				// don't render visibility=hidden
+				if (this.style('visibility').value == 'hidden') return;
+
+				ctx.save();
+				if (this.style('mask').hasValue()) { // mask
+					var mask = this.style('mask').getDefinition();
+					if (mask != null) mask.apply(ctx, this);
+				}
+				else if (this.style('filter').hasValue()) { // filter
+					var filter = this.style('filter').getDefinition();
+					if (filter != null) filter.apply(ctx, this);
+				}
+				else {
+					this.setContext(ctx);
+					this.renderChildren(ctx);
+					this.clearContext(ctx);
+				}
+				ctx.restore();
+			}
+
+			// base set context
+			this.setContext = function(ctx) {
+				// OVERRIDE ME!
+			}
+
+			// base clear context
+			this.clearContext = function(ctx) {
+				// OVERRIDE ME!
+			}
+
+			// base render children
+			this.renderChildren = function(ctx) {
+				for (var i=0; i<this.children.length; i++) {
+					this.children[i].render(ctx);
+				}
+			}
+
+			this.addChild = function(childNode, create) {
+				var child = childNode;
+				if (create) child = svg.CreateElement(childNode);
+				child.parent = this;
+				if (child.type != 'title') { this.children.push(child);	}
+			}
+
+			this.addStylesFromStyleDefinition = function () {
+				// add styles
+				for (var selector in svg.Styles) {
+					if (selector[0] != '@' && matchesSelector(node, selector)) {
+						var styles = svg.Styles[selector];
+						var specificity = svg.StylesSpecificity[selector];
+						if (styles != null) {
+							for (var name in styles) {
+								var existingSpecificity = this.stylesSpecificity[name];
+								if (typeof existingSpecificity == 'undefined') {
+									existingSpecificity = '000';
+								}
+								if (specificity > existingSpecificity) {
+									this.styles[name] = styles[name];
+									this.stylesSpecificity[name] = specificity;
+								}
+							}
+						}
+					}
+				}
+			};
+
+			// Microsoft Edge fix
+			var allUppercase = new RegExp("^[A-Z\-]+$");
+			var normalizeAttributeName = function (name) {
+				if (allUppercase.test(name)) {
+					return name.toLowerCase();
+				}
+				return name;
+			};
+
+			if (node != null && node.nodeType == 1) { //ELEMENT_NODE
+				// add attributes
+				for (var i=0; i<node.attributes.length; i++) {
+					var attribute = node.attributes[i];
+					var nodeName = normalizeAttributeName(attribute.nodeName);
+					this.attributes[nodeName] = new svg.Property(nodeName, attribute.value);
+				}
+
+				this.addStylesFromStyleDefinition();
+
+				// add inline styles
+				if (this.attribute('style').hasValue()) {
+					var styles = this.attribute('style').value.split(';');
+					for (var i=0; i<styles.length; i++) {
+						if (svg.trim(styles[i]) != '') {
+							var style = styles[i].split(':');
+							var name = svg.trim(style[0]);
+							var value = svg.trim(style[1]);
+							this.styles[name] = new svg.Property(name, value);
+						}
+					}
+				}
+
+				// add id
+				if (this.attribute('id').hasValue()) {
+					if (svg.Definitions[this.attribute('id').value] == null) {
+						svg.Definitions[this.attribute('id').value] = this;
+					}
+				}
+
+				// add children
+				for (var i=0; i<node.childNodes.length; i++) {
+					var childNode = node.childNodes[i];
+					if (childNode.nodeType == 1) this.addChild(childNode, true); //ELEMENT_NODE
+					if (this.captureTextNodes && (childNode.nodeType == 3 || childNode.nodeType == 4)) {
+						var text = childNode.value || childNode.text || childNode.textContent || '';
+						if (svg.compressSpaces(text) != '') {
+							this.addChild(new svg.Element.tspan(childNode), false); // TEXT_NODE
+						}
+					}
+				}
+			}
+		}
+
+		svg.Element.RenderedElementBase = function(node) {
+			this.base = svg.Element.ElementBase;
+			this.base(node);
+
+			this.setContext = function(ctx) {
+				// fill
+				if (this.style('fill').isUrlDefinition()) {
+					var fs = this.style('fill').getFillStyleDefinition(this, this.style('fill-opacity'));
+					if (fs != null) ctx.fillStyle = fs;
+				}
+				else if (this.style('fill').hasValue()) {
+					var fillStyle = this.style('fill');
+					if (fillStyle.value == 'currentColor') fillStyle.value = this.style('color').value;
+					if (fillStyle.value != 'inherit') ctx.fillStyle = (fillStyle.value == 'none' ? 'rgba(0,0,0,0)' : fillStyle.value);
+				}
+				if (this.style('fill-opacity').hasValue()) {
+					var fillStyle = new svg.Property('fill', ctx.fillStyle);
+					fillStyle = fillStyle.addOpacity(this.style('fill-opacity'));
+					ctx.fillStyle = fillStyle.value;
+				}
+
+				// stroke
+				if (this.style('stroke').isUrlDefinition()) {
+					var fs = this.style('stroke').getFillStyleDefinition(this, this.style('stroke-opacity'));
+					if (fs != null) ctx.strokeStyle = fs;
+				}
+				else if (this.style('stroke').hasValue()) {
+					var strokeStyle = this.style('stroke');
+					if (strokeStyle.value == 'currentColor') strokeStyle.value = this.style('color').value;
+					if (strokeStyle.value != 'inherit') ctx.strokeStyle = (strokeStyle.value == 'none' ? 'rgba(0,0,0,0)' : strokeStyle.value);
+				}
+				if (this.style('stroke-opacity').hasValue()) {
+					var strokeStyle = new svg.Property('stroke', ctx.strokeStyle);
+					strokeStyle = strokeStyle.addOpacity(this.style('stroke-opacity'));
+					ctx.strokeStyle = strokeStyle.value;
+				}
+				if (this.style('stroke-width').hasValue()) {
+					var newLineWidth = this.style('stroke-width').toPixels();
+					ctx.lineWidth = newLineWidth == 0 ? 0.001 : newLineWidth; // browsers don't respect 0
+			    }
+				if (this.style('stroke-linecap').hasValue()) ctx.lineCap = this.style('stroke-linecap').value;
+				if (this.style('stroke-linejoin').hasValue()) ctx.lineJoin = this.style('stroke-linejoin').value;
+				if (this.style('stroke-miterlimit').hasValue()) ctx.miterLimit = this.style('stroke-miterlimit').value;
+				if (this.style('paint-order').hasValue()) ctx.paintOrder = this.style('paint-order').value;
+				if (this.style('stroke-dasharray').hasValue() && this.style('stroke-dasharray').value != 'none') {
+					var gaps = svg.ToNumberArray(this.style('stroke-dasharray').value);
+					if (typeof ctx.setLineDash != 'undefined') { ctx.setLineDash(gaps); }
+					else if (typeof ctx.webkitLineDash != 'undefined') { ctx.webkitLineDash = gaps; }
+					else if (typeof ctx.mozDash != 'undefined' && !(gaps.length==1 && gaps[0]==0)) { ctx.mozDash = gaps; }
+
+					var offset = this.style('stroke-dashoffset').numValueOrDefault(1);
+					if (typeof ctx.lineDashOffset != 'undefined') { ctx.lineDashOffset = offset; }
+					else if (typeof ctx.webkitLineDashOffset != 'undefined') { ctx.webkitLineDashOffset = offset; }
+					else if (typeof ctx.mozDashOffset != 'undefined') { ctx.mozDashOffset = offset; }
+				}
+
+				// font
+				if (typeof ctx.font != 'undefined') {
+					ctx.font = svg.Font.CreateFont(
+						this.style('font-style').value,
+						this.style('font-variant').value,
+						this.style('font-weight').value,
+						this.style('font-size').hasValue() ? this.style('font-size').toPixels() + 'px' : '',
+						this.style('font-family').value).toString();
+				}
+
+				// transform
+				if (this.style('transform', false, true).hasValue()) {
+					var transform = new svg.Transform(this.style('transform', false, true).value);
+					transform.apply(ctx);
+				}
+
+				// clip
+				if (this.style('clip-path', false, true).hasValue()) {
+					var clip = this.style('clip-path', false, true).getDefinition();
+					if (clip != null) clip.apply(ctx);
+				}
+
+				// opacity
+				if (this.style('opacity').hasValue()) {
+					ctx.globalAlpha = this.style('opacity').numValue();
+				}
+			}
+		}
+		svg.Element.RenderedElementBase.prototype = new svg.Element.ElementBase;
+
+		svg.Element.PathElementBase = function(node) {
+			this.base = svg.Element.RenderedElementBase;
+			this.base(node);
+
+			this.path = function(ctx) {
+				if (ctx != null) ctx.beginPath();
+				return new svg.BoundingBox();
+			}
+
+			this.renderChildren = function(ctx) {
+				this.path(ctx);
+				svg.Mouse.checkPath(this, ctx);
+				if (ctx.fillStyle != '') {
+					if (this.style('fill-rule').valueOrDefault('inherit') != 'inherit') { ctx.fill(this.style('fill-rule').value); }
+					else { ctx.fill(); }
+				}
+				if (ctx.strokeStyle != '') ctx.stroke();
+
+				var markers = this.getMarkers();
+				if (markers != null) {
+					if (this.style('marker-start').isUrlDefinition()) {
+						var marker = this.style('marker-start').getDefinition();
+						marker.render(ctx, markers[0][0], markers[0][1]);
+					}
+					if (this.style('marker-mid').isUrlDefinition()) {
+						var marker = this.style('marker-mid').getDefinition();
+						for (var i=1;i<markers.length-1;i++) {
+							marker.render(ctx, markers[i][0], markers[i][1]);
+						}
+					}
+					if (this.style('marker-end').isUrlDefinition()) {
+						var marker = this.style('marker-end').getDefinition();
+						marker.render(ctx, markers[markers.length-1][0], markers[markers.length-1][1]);
+					}
+				}
+			}
+
+			this.getBoundingBox = function() {
+				return this.path();
+			}
+
+			this.getMarkers = function() {
+				return null;
+			}
+		}
+		svg.Element.PathElementBase.prototype = new svg.Element.RenderedElementBase;
+
+		// svg element
+		svg.Element.svg = function(node) {
+			this.base = svg.Element.RenderedElementBase;
+			this.base(node);
+
+			this.baseClearContext = this.clearContext;
+			this.clearContext = function(ctx) {
+				this.baseClearContext(ctx);
+				svg.ViewPort.RemoveCurrent();
+			}
+
+			this.baseSetContext = this.setContext;
+			this.setContext = function(ctx) {
+				// initial values and defaults
+				ctx.strokeStyle = 'rgba(0,0,0,0)';
+				ctx.lineCap = 'butt';
+				ctx.lineJoin = 'miter';
+				ctx.miterLimit = 4;
+				if (typeof ctx.font != 'undefined' && typeof window.getComputedStyle != 'undefined') {
+					ctx.font = window.getComputedStyle(ctx.canvas).getPropertyValue('font');
+				}
+
+				this.baseSetContext(ctx);
+
+				// create new view port
+				if (!this.attribute('x').hasValue()) this.attribute('x', true).value = 0;
+				if (!this.attribute('y').hasValue()) this.attribute('y', true).value = 0;
+				ctx.translate(this.attribute('x').toPixels('x'), this.attribute('y').toPixels('y'));
+
+				var width = svg.ViewPort.width();
+				var height = svg.ViewPort.height();
+
+				if (!this.attribute('width').hasValue()) this.attribute('width', true).value = '100%';
+				if (!this.attribute('height').hasValue()) this.attribute('height', true).value = '100%';
+				if (typeof this.root == 'undefined') {
+					width = this.attribute('width').toPixels('x');
+					height = this.attribute('height').toPixels('y');
+
+					var x = 0;
+					var y = 0;
+					if (this.attribute('refX').hasValue() && this.attribute('refY').hasValue()) {
+						x = -this.attribute('refX').toPixels('x');
+						y = -this.attribute('refY').toPixels('y');
+					}
+
+					if (this.attribute('overflow').valueOrDefault('hidden') != 'visible') {
+						ctx.beginPath();
+						ctx.moveTo(x, y);
+						ctx.lineTo(width, y);
+						ctx.lineTo(width, height);
+						ctx.lineTo(x, height);
+						ctx.closePath();
+						ctx.clip();
+					}
+				}
+				svg.ViewPort.SetCurrent(width, height);
+
+				// viewbox
+				if (this.attribute('viewBox').hasValue()) {
+					var viewBox = svg.ToNumberArray(this.attribute('viewBox').value);
+					var minX = viewBox[0];
+					var minY = viewBox[1];
+					width = viewBox[2];
+					height = viewBox[3];
+
+					svg.AspectRatio(ctx,
+									this.attribute('preserveAspectRatio').value,
+									svg.ViewPort.width(),
+									width,
+									svg.ViewPort.height(),
+									height,
+									minX,
+									minY,
+									this.attribute('refX').value,
+									this.attribute('refY').value);
+
+					svg.ViewPort.RemoveCurrent();
+					svg.ViewPort.SetCurrent(viewBox[2], viewBox[3]);
+				}
+			}
+		}
+		svg.Element.svg.prototype = new svg.Element.RenderedElementBase;
+
+		// rect element
+		svg.Element.rect = function(node) {
+			this.base = svg.Element.PathElementBase;
+			this.base(node);
+
+			this.path = function(ctx) {
+				var x = this.attribute('x').toPixels('x');
+				var y = this.attribute('y').toPixels('y');
+				var width = this.attribute('width').toPixels('x');
+				var height = this.attribute('height').toPixels('y');
+				var rx = this.attribute('rx').toPixels('x');
+				var ry = this.attribute('ry').toPixels('y');
+				if (this.attribute('rx').hasValue() && !this.attribute('ry').hasValue()) ry = rx;
+				if (this.attribute('ry').hasValue() && !this.attribute('rx').hasValue()) rx = ry;
+				rx = Math.min(rx, width / 2.0);
+				ry = Math.min(ry, height / 2.0);
+				if (ctx != null) {
+					ctx.beginPath();
+					ctx.moveTo(x + rx, y);
+					ctx.lineTo(x + width - rx, y);
+					ctx.quadraticCurveTo(x + width, y, x + width, y + ry)
+					ctx.lineTo(x + width, y + height - ry);
+					ctx.quadraticCurveTo(x + width, y + height, x + width - rx, y + height)
+					ctx.lineTo(x + rx, y + height);
+					ctx.quadraticCurveTo(x, y + height, x, y + height - ry)
+					ctx.lineTo(x, y + ry);
+					ctx.quadraticCurveTo(x, y, x + rx, y)
+					ctx.closePath();
+				}
+
+				return new svg.BoundingBox(x, y, x + width, y + height);
+			}
+		}
+		svg.Element.rect.prototype = new svg.Element.PathElementBase;
+
+		// circle element
+		svg.Element.circle = function(node) {
+			this.base = svg.Element.PathElementBase;
+			this.base(node);
+
+			this.path = function(ctx) {
+				var cx = this.attribute('cx').toPixels('x');
+				var cy = this.attribute('cy').toPixels('y');
+				var r = this.attribute('r').toPixels();
+
+				if (ctx != null) {
+					ctx.beginPath();
+					ctx.arc(cx, cy, r, 0, Math.PI * 2, true);
+					ctx.closePath();
+				}
+
+				return new svg.BoundingBox(cx - r, cy - r, cx + r, cy + r);
+			}
+		}
+		svg.Element.circle.prototype = new svg.Element.PathElementBase;
+
+		// ellipse element
+		svg.Element.ellipse = function(node) {
+			this.base = svg.Element.PathElementBase;
+			this.base(node);
+
+			this.path = function(ctx) {
+				var KAPPA = 4 * ((Math.sqrt(2) - 1) / 3);
+				var rx = this.attribute('rx').toPixels('x');
+				var ry = this.attribute('ry').toPixels('y');
+				var cx = this.attribute('cx').toPixels('x');
+				var cy = this.attribute('cy').toPixels('y');
+
+				if (ctx != null) {
+					ctx.beginPath();
+					ctx.moveTo(cx, cy - ry);
+					ctx.bezierCurveTo(cx + (KAPPA * rx), cy - ry,  cx + rx, cy - (KAPPA * ry), cx + rx, cy);
+					ctx.bezierCurveTo(cx + rx, cy + (KAPPA * ry), cx + (KAPPA * rx), cy + ry, cx, cy + ry);
+					ctx.bezierCurveTo(cx - (KAPPA * rx), cy + ry, cx - rx, cy + (KAPPA * ry), cx - rx, cy);
+					ctx.bezierCurveTo(cx - rx, cy - (KAPPA * ry), cx - (KAPPA * rx), cy - ry, cx, cy - ry);
+					ctx.closePath();
+				}
+
+				return new svg.BoundingBox(cx - rx, cy - ry, cx + rx, cy + ry);
+			}
+		}
+		svg.Element.ellipse.prototype = new svg.Element.PathElementBase;
+
+		// line element
+		svg.Element.line = function(node) {
+			this.base = svg.Element.PathElementBase;
+			this.base(node);
+
+			this.getPoints = function() {
+				return [
+					new svg.Point(this.attribute('x1').toPixels('x'), this.attribute('y1').toPixels('y')),
+					new svg.Point(this.attribute('x2').toPixels('x'), this.attribute('y2').toPixels('y'))];
+			}
+
+			this.path = function(ctx) {
+				var points = this.getPoints();
+
+				if (ctx != null) {
+					ctx.beginPath();
+					ctx.moveTo(points[0].x, points[0].y);
+					ctx.lineTo(points[1].x, points[1].y);
+				}
+
+				return new svg.BoundingBox(points[0].x, points[0].y, points[1].x, points[1].y);
+			}
+
+			this.getMarkers = function() {
+				var points = this.getPoints();
+				var a = points[0].angleTo(points[1]);
+				return [[points[0], a], [points[1], a]];
+			}
+		}
+		svg.Element.line.prototype = new svg.Element.PathElementBase;
+
+		// polyline element
+		svg.Element.polyline = function(node) {
+			this.base = svg.Element.PathElementBase;
+			this.base(node);
+
+			this.points = svg.CreatePath(this.attribute('points').value);
+			this.path = function(ctx) {
+				var bb = new svg.BoundingBox(this.points[0].x, this.points[0].y);
+				if (ctx != null) {
+					ctx.beginPath();
+					ctx.moveTo(this.points[0].x, this.points[0].y);
+				}
+				for (var i=1; i<this.points.length; i++) {
+					bb.addPoint(this.points[i].x, this.points[i].y);
+					if (ctx != null) ctx.lineTo(this.points[i].x, this.points[i].y);
+				}
+				return bb;
+			}
+
+			this.getMarkers = function() {
+				var markers = [];
+				for (var i=0; i<this.points.length - 1; i++) {
+					markers.push([this.points[i], this.points[i].angleTo(this.points[i+1])]);
+				}
+				if (markers.length > 0) {
+					markers.push([this.points[this.points.length-1], markers[markers.length-1][1]]);
+				}
+				return markers;
+			}
+		}
+		svg.Element.polyline.prototype = new svg.Element.PathElementBase;
+
+		// polygon element
+		svg.Element.polygon = function(node) {
+			this.base = svg.Element.polyline;
+			this.base(node);
+
+			this.basePath = this.path;
+			this.path = function(ctx) {
+				var bb = this.basePath(ctx);
+				if (ctx != null) {
+					ctx.lineTo(this.points[0].x, this.points[0].y);
+					ctx.closePath();
+				}
+				return bb;
+			}
+		}
+		svg.Element.polygon.prototype = new svg.Element.polyline;
+
+		// path element
+		svg.Element.path = function(node) {
+			this.base = svg.Element.PathElementBase;
+			this.base(node);
+
+			var d = this.attribute('d').value;
+			// TODO: convert to real lexer based on http://www.w3.org/TR/SVG11/paths.html#PathDataBNF
+			d = d.replace(/,/gm,' '); // get rid of all commas
+			// As the end of a match can also be the start of the next match, we need to run this replace twice.
+			for(var i=0; i<2; i++)
+				d = d.replace(/([MmZzLlHhVvCcSsQqTtAa])([^\s])/gm,'$1 $2'); // suffix commands with spaces
+			d = d.replace(/([^\s])([MmZzLlHhVvCcSsQqTtAa])/gm,'$1 $2'); // prefix commands with spaces
+			d = d.replace(/([0-9])([+\-])/gm,'$1 $2'); // separate digits on +- signs
+			// Again, we need to run this twice to find all occurances
+			for(var i=0; i<2; i++)
+				d = d.replace(/(\.[0-9]*)(\.)/gm,'$1 $2'); // separate digits when they start with a comma
+			d = d.replace(/([Aa](\s+[0-9]+){3})\s+([01])\s*([01])/gm,'$1 $3 $4 '); // shorthand elliptical arc path syntax
+			d = svg.compressSpaces(d); // compress multiple spaces
+			d = svg.trim(d);
+			this.PathParser = new (function(d) {
+				this.tokens = d.split(' ');
+
+				this.reset = function() {
+					this.i = -1;
+					this.command = '';
+					this.previousCommand = '';
+					this.start = new svg.Point(0, 0);
+					this.control = new svg.Point(0, 0);
+					this.current = new svg.Point(0, 0);
+					this.points = [];
+					this.angles = [];
+				}
+
+				this.isEnd = function() {
+					return this.i >= this.tokens.length - 1;
+				}
+
+				this.isCommandOrEnd = function() {
+					if (this.isEnd()) return true;
+					return this.tokens[this.i + 1].match(/^[A-Za-z]$/) != null;
+				}
+
+				this.isRelativeCommand = function() {
+					switch(this.command)
+					{
+						case 'm':
+						case 'l':
+						case 'h':
+						case 'v':
+						case 'c':
+						case 's':
+						case 'q':
+						case 't':
+						case 'a':
+						case 'z':
+							return true;
+							break;
+					}
+					return false;
+				}
+
+				this.getToken = function() {
+					this.i++;
+					return this.tokens[this.i];
+				}
+
+				this.getScalar = function() {
+					return parseFloat(this.getToken());
+				}
+
+				this.nextCommand = function() {
+					this.previousCommand = this.command;
+					this.command = this.getToken();
+				}
+
+				this.getPoint = function() {
+					var p = new svg.Point(this.getScalar(), this.getScalar());
+					return this.makeAbsolute(p);
+				}
+
+				this.getAsControlPoint = function() {
+					var p = this.getPoint();
+					this.control = p;
+					return p;
+				}
+
+				this.getAsCurrentPoint = function() {
+					var p = this.getPoint();
+					this.current = p;
+					return p;
+				}
+
+				this.getReflectedControlPoint = function() {
+					if (this.previousCommand.toLowerCase() != 'c' &&
+					    this.previousCommand.toLowerCase() != 's' &&
+						this.previousCommand.toLowerCase() != 'q' &&
+						this.previousCommand.toLowerCase() != 't' ){
+						return this.current;
+					}
+
+					// reflect point
+					var p = new svg.Point(2 * this.current.x - this.control.x, 2 * this.current.y - this.control.y);
+					return p;
+				}
+
+				this.makeAbsolute = function(p) {
+					if (this.isRelativeCommand()) {
+						p.x += this.current.x;
+						p.y += this.current.y;
+					}
+					return p;
+				}
+
+				this.addMarker = function(p, from, priorTo) {
+					// if the last angle isn't filled in because we didn't have this point yet ...
+					if (priorTo != null && this.angles.length > 0 && this.angles[this.angles.length-1] == null) {
+						this.angles[this.angles.length-1] = this.points[this.points.length-1].angleTo(priorTo);
+					}
+					this.addMarkerAngle(p, from == null ? null : from.angleTo(p));
+				}
+
+				this.addMarkerAngle = function(p, a) {
+					this.points.push(p);
+					this.angles.push(a);
+				}
+
+				this.getMarkerPoints = function() { return this.points; }
+				this.getMarkerAngles = function() {
+					for (var i=0; i<this.angles.length; i++) {
+						if (this.angles[i] == null) {
+							for (var j=i+1; j<this.angles.length; j++) {
+								if (this.angles[j] != null) {
+									this.angles[i] = this.angles[j];
+									break;
+								}
+							}
+						}
+					}
+					return this.angles;
+				}
+			})(d);
+
+			this.path = function(ctx) {
+				var pp = this.PathParser;
+				pp.reset();
+
+				var bb = new svg.BoundingBox();
+				if (ctx != null) ctx.beginPath();
+				while (!pp.isEnd()) {
+					pp.nextCommand();
+					switch (pp.command) {
+					case 'M':
+					case 'm':
+						var p = pp.getAsCurrentPoint();
+						pp.addMarker(p);
+						bb.addPoint(p.x, p.y);
+						if (ctx != null) ctx.moveTo(p.x, p.y);
+						pp.start = pp.current;
+						while (!pp.isCommandOrEnd()) {
+							var p = pp.getAsCurrentPoint();
+							pp.addMarker(p, pp.start);
+							bb.addPoint(p.x, p.y);
+							if (ctx != null) ctx.lineTo(p.x, p.y);
+						}
+						break;
+					case 'L':
+					case 'l':
+						while (!pp.isCommandOrEnd()) {
+							var c = pp.current;
+							var p = pp.getAsCurrentPoint();
+							pp.addMarker(p, c);
+							bb.addPoint(p.x, p.y);
+							if (ctx != null) ctx.lineTo(p.x, p.y);
+						}
+						break;
+					case 'H':
+					case 'h':
+						while (!pp.isCommandOrEnd()) {
+							var newP = new svg.Point((pp.isRelativeCommand() ? pp.current.x : 0) + pp.getScalar(), pp.current.y);
+							pp.addMarker(newP, pp.current);
+							pp.current = newP;
+							bb.addPoint(pp.current.x, pp.current.y);
+							if (ctx != null) ctx.lineTo(pp.current.x, pp.current.y);
+						}
+						break;
+					case 'V':
+					case 'v':
+						while (!pp.isCommandOrEnd()) {
+							var newP = new svg.Point(pp.current.x, (pp.isRelativeCommand() ? pp.current.y : 0) + pp.getScalar());
+							pp.addMarker(newP, pp.current);
+							pp.current = newP;
+							bb.addPoint(pp.current.x, pp.current.y);
+							if (ctx != null) ctx.lineTo(pp.current.x, pp.current.y);
+						}
+						break;
+					case 'C':
+					case 'c':
+						while (!pp.isCommandOrEnd()) {
+							var curr = pp.current;
+							var p1 = pp.getPoint();
+							var cntrl = pp.getAsControlPoint();
+							var cp = pp.getAsCurrentPoint();
+							pp.addMarker(cp, cntrl, p1);
+							bb.addBezierCurve(curr.x, curr.y, p1.x, p1.y, cntrl.x, cntrl.y, cp.x, cp.y);
+							if (ctx != null) ctx.bezierCurveTo(p1.x, p1.y, cntrl.x, cntrl.y, cp.x, cp.y);
+						}
+						break;
+					case 'S':
+					case 's':
+						while (!pp.isCommandOrEnd()) {
+							var curr = pp.current;
+							var p1 = pp.getReflectedControlPoint();
+							var cntrl = pp.getAsControlPoint();
+							var cp = pp.getAsCurrentPoint();
+							pp.addMarker(cp, cntrl, p1);
+							bb.addBezierCurve(curr.x, curr.y, p1.x, p1.y, cntrl.x, cntrl.y, cp.x, cp.y);
+							if (ctx != null) ctx.bezierCurveTo(p1.x, p1.y, cntrl.x, cntrl.y, cp.x, cp.y);
+						}
+						break;
+					case 'Q':
+					case 'q':
+						while (!pp.isCommandOrEnd()) {
+							var curr = pp.current;
+							var cntrl = pp.getAsControlPoint();
+							var cp = pp.getAsCurrentPoint();
+							pp.addMarker(cp, cntrl, cntrl);
+							bb.addQuadraticCurve(curr.x, curr.y, cntrl.x, cntrl.y, cp.x, cp.y);
+							if (ctx != null) ctx.quadraticCurveTo(cntrl.x, cntrl.y, cp.x, cp.y);
+						}
+						break;
+					case 'T':
+					case 't':
+						while (!pp.isCommandOrEnd()) {
+							var curr = pp.current;
+							var cntrl = pp.getReflectedControlPoint();
+							pp.control = cntrl;
+							var cp = pp.getAsCurrentPoint();
+							pp.addMarker(cp, cntrl, cntrl);
+							bb.addQuadraticCurve(curr.x, curr.y, cntrl.x, cntrl.y, cp.x, cp.y);
+							if (ctx != null) ctx.quadraticCurveTo(cntrl.x, cntrl.y, cp.x, cp.y);
+						}
+						break;
+					case 'A':
+					case 'a':
+						while (!pp.isCommandOrEnd()) {
+						    var curr = pp.current;
+							var rx = pp.getScalar();
+							var ry = pp.getScalar();
+							var xAxisRotation = pp.getScalar() * (Math.PI / 180.0);
+							var largeArcFlag = pp.getScalar();
+							var sweepFlag = pp.getScalar();
+							var cp = pp.getAsCurrentPoint();
+
+							// Conversion from endpoint to center parameterization
+							// http://www.w3.org/TR/SVG11/implnote.html#ArcImplementationNotes
+							// x1', y1'
+							var currp = new svg.Point(
+								Math.cos(xAxisRotation) * (curr.x - cp.x) / 2.0 + Math.sin(xAxisRotation) * (curr.y - cp.y) / 2.0,
+								-Math.sin(xAxisRotation) * (curr.x - cp.x) / 2.0 + Math.cos(xAxisRotation) * (curr.y - cp.y) / 2.0
+							);
+							// adjust radii
+							var l = Math.pow(currp.x,2)/Math.pow(rx,2)+Math.pow(currp.y,2)/Math.pow(ry,2);
+							if (l > 1) {
+								rx *= Math.sqrt(l);
+								ry *= Math.sqrt(l);
+							}
+							// cx', cy'
+							var s = (largeArcFlag == sweepFlag ? -1 : 1) * Math.sqrt(
+								((Math.pow(rx,2)*Math.pow(ry,2))-(Math.pow(rx,2)*Math.pow(currp.y,2))-(Math.pow(ry,2)*Math.pow(currp.x,2))) /
+								(Math.pow(rx,2)*Math.pow(currp.y,2)+Math.pow(ry,2)*Math.pow(currp.x,2))
+							);
+							if (isNaN(s)) s = 0;
+							var cpp = new svg.Point(s * rx * currp.y / ry, s * -ry * currp.x / rx);
+							// cx, cy
+							var centp = new svg.Point(
+								(curr.x + cp.x) / 2.0 + Math.cos(xAxisRotation) * cpp.x - Math.sin(xAxisRotation) * cpp.y,
+								(curr.y + cp.y) / 2.0 + Math.sin(xAxisRotation) * cpp.x + Math.cos(xAxisRotation) * cpp.y
+							);
+							// vector magnitude
+							var m = function(v) { return Math.sqrt(Math.pow(v[0],2) + Math.pow(v[1],2)); }
+							// ratio between two vectors
+							var r = function(u, v) { return (u[0]*v[0]+u[1]*v[1]) / (m(u)*m(v)) }
+							// angle between two vectors
+							var a = function(u, v) { return (u[0]*v[1] < u[1]*v[0] ? -1 : 1) * Math.acos(r(u,v)); }
+							// initial angle
+							var a1 = a([1,0], [(currp.x-cpp.x)/rx,(currp.y-cpp.y)/ry]);
+							// angle delta
+							var u = [(currp.x-cpp.x)/rx,(currp.y-cpp.y)/ry];
+							var v = [(-currp.x-cpp.x)/rx,(-currp.y-cpp.y)/ry];
+							var ad = a(u, v);
+							if (r(u,v) <= -1) ad = Math.PI;
+							if (r(u,v) >= 1) ad = 0;
+
+							// for markers
+							var dir = 1 - sweepFlag ? 1.0 : -1.0;
+							var ah = a1 + dir * (ad / 2.0);
+							var halfWay = new svg.Point(
+								centp.x + rx * Math.cos(ah),
+								centp.y + ry * Math.sin(ah)
+							);
+							pp.addMarkerAngle(halfWay, ah - dir * Math.PI / 2);
+							pp.addMarkerAngle(cp, ah - dir * Math.PI);
+
+							bb.addPoint(cp.x, cp.y); // TODO: this is too naive, make it better
+							if (ctx != null) {
+								var r = rx > ry ? rx : ry;
+								var sx = rx > ry ? 1 : rx / ry;
+								var sy = rx > ry ? ry / rx : 1;
+
+								ctx.translate(centp.x, centp.y);
+								ctx.rotate(xAxisRotation);
+								ctx.scale(sx, sy);
+								ctx.arc(0, 0, r, a1, a1 + ad, 1 - sweepFlag);
+								ctx.scale(1/sx, 1/sy);
+								ctx.rotate(-xAxisRotation);
+								ctx.translate(-centp.x, -centp.y);
+							}
+						}
+						break;
+					case 'Z':
+					case 'z':
+						if (ctx != null) ctx.closePath();
+						pp.current = pp.start;
+					}
+				}
+
+				return bb;
+			}
+
+			this.getMarkers = function() {
+				var points = this.PathParser.getMarkerPoints();
+				var angles = this.PathParser.getMarkerAngles();
+
+				var markers = [];
+				for (var i=0; i<points.length; i++) {
+					markers.push([points[i], angles[i]]);
+				}
+				return markers;
+			}
+		}
+		svg.Element.path.prototype = new svg.Element.PathElementBase;
+
+		// pattern element
+		svg.Element.pattern = function(node) {
+			this.base = svg.Element.ElementBase;
+			this.base(node);
+
+			this.createPattern = function(ctx, element) {
+				var width = this.attribute('width').toPixels('x', true);
+				var height = this.attribute('height').toPixels('y', true);
+
+				// render me using a temporary svg element
+				var tempSvg = new svg.Element.svg();
+				tempSvg.attributes['viewBox'] = new svg.Property('viewBox', this.attribute('viewBox').value);
+				tempSvg.attributes['width'] = new svg.Property('width', width + 'px');
+				tempSvg.attributes['height'] = new svg.Property('height', height + 'px');
+				tempSvg.attributes['transform'] = new svg.Property('transform', this.attribute('patternTransform').value);
+				tempSvg.children = this.children;
+
+				var c = document.createElement('canvas');
+				c.width = width;
+				c.height = height;
+				var cctx = c.getContext('2d');
+				if (this.attribute('x').hasValue() && this.attribute('y').hasValue()) {
+					cctx.translate(this.attribute('x').toPixels('x', true), this.attribute('y').toPixels('y', true));
+				}
+				// render 3x3 grid so when we transform there's no white space on edges
+				for (var x=-1; x<=1; x++) {
+					for (var y=-1; y<=1; y++) {
+						cctx.save();
+						tempSvg.attributes['x'] = new svg.Property('x', x * c.width);
+						tempSvg.attributes['y'] = new svg.Property('y', y * c.height);
+						tempSvg.render(cctx);
+						cctx.restore();
+					}
+				}
+				var pattern = ctx.createPattern(c, 'repeat');
+				return pattern;
+			}
+		}
+		svg.Element.pattern.prototype = new svg.Element.ElementBase;
+
+		// marker element
+		svg.Element.marker = function(node) {
+			this.base = svg.Element.ElementBase;
+			this.base(node);
+
+			this.baseRender = this.render;
+			this.render = function(ctx, point, angle) {
+				ctx.translate(point.x, point.y);
+				if (this.attribute('orient').valueOrDefault('auto') == 'auto') ctx.rotate(angle);
+				if (this.attribute('markerUnits').valueOrDefault('strokeWidth') == 'strokeWidth') ctx.scale(ctx.lineWidth, ctx.lineWidth);
+				ctx.save();
+
+				// render me using a temporary svg element
+				var tempSvg = new svg.Element.svg();
+				tempSvg.attributes['viewBox'] = new svg.Property('viewBox', this.attribute('viewBox').value);
+				tempSvg.attributes['refX'] = new svg.Property('refX', this.attribute('refX').value);
+				tempSvg.attributes['refY'] = new svg.Property('refY', this.attribute('refY').value);
+				tempSvg.attributes['width'] = new svg.Property('width', this.attribute('markerWidth').value);
+				tempSvg.attributes['height'] = new svg.Property('height', this.attribute('markerHeight').value);
+				tempSvg.attributes['fill'] = new svg.Property('fill', this.attribute('fill').valueOrDefault('black'));
+				tempSvg.attributes['stroke'] = new svg.Property('stroke', this.attribute('stroke').valueOrDefault('none'));
+				tempSvg.children = this.children;
+				tempSvg.render(ctx);
+
+				ctx.restore();
+				if (this.attribute('markerUnits').valueOrDefault('strokeWidth') == 'strokeWidth') ctx.scale(1/ctx.lineWidth, 1/ctx.lineWidth);
+				if (this.attribute('orient').valueOrDefault('auto') == 'auto') ctx.rotate(-angle);
+				ctx.translate(-point.x, -point.y);
+			}
+		}
+		svg.Element.marker.prototype = new svg.Element.ElementBase;
+
+		// definitions element
+		svg.Element.defs = function(node) {
+			this.base = svg.Element.ElementBase;
+			this.base(node);
+
+			this.render = function(ctx) {
+				// NOOP
+			}
+		}
+		svg.Element.defs.prototype = new svg.Element.ElementBase;
+
+		// base for gradients
+		svg.Element.GradientBase = function(node) {
+			this.base = svg.Element.ElementBase;
+			this.base(node);
+
+			this.stops = [];
+			for (var i=0; i<this.children.length; i++) {
+				var child = this.children[i];
+				if (child.type == 'stop') this.stops.push(child);
+			}
+
+			this.getGradient = function() {
+				// OVERRIDE ME!
+			}
+
+			this.gradientUnits = function () {
+				return this.attribute('gradientUnits').valueOrDefault('objectBoundingBox');
+			}
+
+			this.attributesToInherit = ['gradientUnits'];
+
+			this.inheritStopContainer = function (stopsContainer) {
+				for (var i=0; i<this.attributesToInherit.length; i++) {
+					var attributeToInherit = this.attributesToInherit[i];
+					if (!this.attribute(attributeToInherit).hasValue() && stopsContainer.attribute(attributeToInherit).hasValue()) {
+						this.attribute(attributeToInherit, true).value = stopsContainer.attribute(attributeToInherit).value;
+					}
+				}
+			}
+
+			this.createGradient = function(ctx, element, parentOpacityProp) {
+				var stopsContainer = this;
+				if (this.getHrefAttribute().hasValue()) {
+					stopsContainer = this.getHrefAttribute().getDefinition();
+					this.inheritStopContainer(stopsContainer);
+				}
+
+				var addParentOpacity = function (color) {
+					if (parentOpacityProp.hasValue()) {
+						var p = new svg.Property('color', color);
+						return p.addOpacity(parentOpacityProp).value;
+					}
+					return color;
+				};
+
+				var g = this.getGradient(ctx, element);
+				if (g == null) return addParentOpacity(stopsContainer.stops[stopsContainer.stops.length - 1].color);
+				for (var i=0; i<stopsContainer.stops.length; i++) {
+					g.addColorStop(stopsContainer.stops[i].offset, addParentOpacity(stopsContainer.stops[i].color));
+				}
+
+				if (this.attribute('gradientTransform').hasValue()) {
+					// render as transformed pattern on temporary canvas
+					var rootView = svg.ViewPort.viewPorts[0];
+
+					var rect = new svg.Element.rect();
+					rect.attributes['x'] = new svg.Property('x', -svg.MAX_VIRTUAL_PIXELS/3.0);
+					rect.attributes['y'] = new svg.Property('y', -svg.MAX_VIRTUAL_PIXELS/3.0);
+					rect.attributes['width'] = new svg.Property('width', svg.MAX_VIRTUAL_PIXELS);
+					rect.attributes['height'] = new svg.Property('height', svg.MAX_VIRTUAL_PIXELS);
+
+					var group = new svg.Element.g();
+					group.attributes['transform'] = new svg.Property('transform', this.attribute('gradientTransform').value);
+					group.children = [ rect ];
+
+					var tempSvg = new svg.Element.svg();
+					tempSvg.attributes['x'] = new svg.Property('x', 0);
+					tempSvg.attributes['y'] = new svg.Property('y', 0);
+					tempSvg.attributes['width'] = new svg.Property('width', rootView.width);
+					tempSvg.attributes['height'] = new svg.Property('height', rootView.height);
+					tempSvg.children = [ group ];
+
+					var c = document.createElement('canvas');
+					c.width = rootView.width;
+					c.height = rootView.height;
+					var tempCtx = c.getContext('2d');
+					tempCtx.fillStyle = g;
+					tempSvg.render(tempCtx);
+					return tempCtx.createPattern(c, 'no-repeat');
+				}
+
+				return g;
+			}
+		}
+		svg.Element.GradientBase.prototype = new svg.Element.ElementBase;
+
+		// linear gradient element
+		svg.Element.linearGradient = function(node) {
+			this.base = svg.Element.GradientBase;
+			this.base(node);
+
+			this.attributesToInherit.push('x1');
+			this.attributesToInherit.push('y1');
+			this.attributesToInherit.push('x2');
+			this.attributesToInherit.push('y2');
+
+			this.getGradient = function(ctx, element) {
+				var bb = this.gradientUnits() == 'objectBoundingBox' ? element.getBoundingBox() : null;
+
+				if (!this.attribute('x1').hasValue()
+				 && !this.attribute('y1').hasValue()
+				 && !this.attribute('x2').hasValue()
+				 && !this.attribute('y2').hasValue()) {
+					this.attribute('x1', true).value = 0;
+					this.attribute('y1', true).value = 0;
+					this.attribute('x2', true).value = 1;
+					this.attribute('y2', true).value = 0;
+				 }
+
+				var x1 = (this.gradientUnits() == 'objectBoundingBox'
+					? bb.x() + bb.width() * this.attribute('x1').numValue()
+					: this.attribute('x1').toPixels('x'));
+				var y1 = (this.gradientUnits() == 'objectBoundingBox'
+					? bb.y() + bb.height() * this.attribute('y1').numValue()
+					: this.attribute('y1').toPixels('y'));
+				var x2 = (this.gradientUnits() == 'objectBoundingBox'
+					? bb.x() + bb.width() * this.attribute('x2').numValue()
+					: this.attribute('x2').toPixels('x'));
+				var y2 = (this.gradientUnits() == 'objectBoundingBox'
+					? bb.y() + bb.height() * this.attribute('y2').numValue()
+					: this.attribute('y2').toPixels('y'));
+
+				if (x1 == x2 && y1 == y2) return null;
+				return ctx.createLinearGradient(x1, y1, x2, y2);
+			}
+		}
+		svg.Element.linearGradient.prototype = new svg.Element.GradientBase;
+
+		// radial gradient element
+		svg.Element.radialGradient = function(node) {
+			this.base = svg.Element.GradientBase;
+			this.base(node);
+
+			this.attributesToInherit.push('cx');
+			this.attributesToInherit.push('cy');
+			this.attributesToInherit.push('r');
+			this.attributesToInherit.push('fx');
+			this.attributesToInherit.push('fy');
+
+			this.getGradient = function(ctx, element) {
+				var bb = element.getBoundingBox();
+
+				if (!this.attribute('cx').hasValue()) this.attribute('cx', true).value = '50%';
+				if (!this.attribute('cy').hasValue()) this.attribute('cy', true).value = '50%';
+				if (!this.attribute('r').hasValue()) this.attribute('r', true).value = '50%';
+
+				var cx = (this.gradientUnits() == 'objectBoundingBox'
+					? bb.x() + bb.width() * this.attribute('cx').numValue()
+					: this.attribute('cx').toPixels('x'));
+				var cy = (this.gradientUnits() == 'objectBoundingBox'
+					? bb.y() + bb.height() * this.attribute('cy').numValue()
+					: this.attribute('cy').toPixels('y'));
+
+				var fx = cx;
+				var fy = cy;
+				if (this.attribute('fx').hasValue()) {
+					fx = (this.gradientUnits() == 'objectBoundingBox'
+					? bb.x() + bb.width() * this.attribute('fx').numValue()
+					: this.attribute('fx').toPixels('x'));
+				}
+				if (this.attribute('fy').hasValue()) {
+					fy = (this.gradientUnits() == 'objectBoundingBox'
+					? bb.y() + bb.height() * this.attribute('fy').numValue()
+					: this.attribute('fy').toPixels('y'));
+				}
+
+				var r = (this.gradientUnits() == 'objectBoundingBox'
+					? (bb.width() + bb.height()) / 2.0 * this.attribute('r').numValue()
+					: this.attribute('r').toPixels());
+
+				return ctx.createRadialGradient(fx, fy, 0, cx, cy, r);
+			}
+		}
+		svg.Element.radialGradient.prototype = new svg.Element.GradientBase;
+
+		// gradient stop element
+		svg.Element.stop = function(node) {
+			this.base = svg.Element.ElementBase;
+			this.base(node);
+
+			this.offset = this.attribute('offset').numValue();
+			if (this.offset < 0) this.offset = 0;
+			if (this.offset > 1) this.offset = 1;
+
+			var stopColor = this.style('stop-color', true);
+			if (stopColor.value === '') stopColor.value = '#000';
+			if (this.style('stop-opacity').hasValue()) stopColor = stopColor.addOpacity(this.style('stop-opacity'));
+			this.color = stopColor.value;
+		}
+		svg.Element.stop.prototype = new svg.Element.ElementBase;
+
+		// animation base element
+		svg.Element.AnimateBase = function(node) {
+			this.base = svg.Element.ElementBase;
+			this.base(node);
+
+			svg.Animations.push(this);
+
+			this.duration = 0.0;
+			this.begin = this.attribute('begin').toMilliseconds();
+			this.maxDuration = this.begin + this.attribute('dur').toMilliseconds();
+
+			this.getProperty = function() {
+				var attributeType = this.attribute('attributeType').value;
+				var attributeName = this.attribute('attributeName').value;
+
+				if (attributeType == 'CSS') {
+					return this.parent.style(attributeName, true);
+				}
+				return this.parent.attribute(attributeName, true);
+			};
+
+			this.initialValue = null;
+			this.initialUnits = '';
+			this.removed = false;
+
+			this.calcValue = function() {
+				// OVERRIDE ME!
+				return '';
+			}
+
+			this.update = function(delta) {
+				// set initial value
+				if (this.initialValue == null) {
+					this.initialValue = this.getProperty().value;
+					this.initialUnits = this.getProperty().getUnits();
+				}
+
+				// if we're past the end time
+				if (this.duration > this.maxDuration) {
+					// loop for indefinitely repeating animations
+					if (this.attribute('repeatCount').value == 'indefinite'
+					 || this.attribute('repeatDur').value == 'indefinite') {
+						this.duration = 0.0
+					}
+					else if (this.attribute('fill').valueOrDefault('remove') == 'freeze' && !this.frozen) {
+						this.frozen = true;
+						this.parent.animationFrozen = true;
+						this.parent.animationFrozenValue = this.getProperty().value;
+					}
+					else if (this.attribute('fill').valueOrDefault('remove') == 'remove' && !this.removed) {
+						this.removed = true;
+						this.getProperty().value = this.parent.animationFrozen ? this.parent.animationFrozenValue : this.initialValue;
+						return true;
+					}
+					return false;
+				}
+				this.duration = this.duration + delta;
+
+				// if we're past the begin time
+				var updated = false;
+				if (this.begin < this.duration) {
+					var newValue = this.calcValue(); // tween
+
+					if (this.attribute('type').hasValue()) {
+						// for transform, etc.
+						var type = this.attribute('type').value;
+						newValue = type + '(' + newValue + ')';
+					}
+
+					this.getProperty().value = newValue;
+					updated = true;
+				}
+
+				return updated;
+			}
+
+			this.from = this.attribute('from');
+			this.to = this.attribute('to');
+			this.values = this.attribute('values');
+			if (this.values.hasValue()) this.values.value = this.values.value.split(';');
+
+			// fraction of duration we've covered
+			this.progress = function() {
+				var ret = { progress: (this.duration - this.begin) / (this.maxDuration - this.begin) };
+				if (this.values.hasValue()) {
+					var p = ret.progress * (this.values.value.length - 1);
+					var lb = Math.floor(p), ub = Math.ceil(p);
+					ret.from = new svg.Property('from', parseFloat(this.values.value[lb]));
+					ret.to = new svg.Property('to', parseFloat(this.values.value[ub]));
+					ret.progress = (p - lb) / (ub - lb);
+				}
+				else {
+					ret.from = this.from;
+					ret.to = this.to;
+				}
+				return ret;
+			}
+		}
+		svg.Element.AnimateBase.prototype = new svg.Element.ElementBase;
+
+		// animate element
+		svg.Element.animate = function(node) {
+			this.base = svg.Element.AnimateBase;
+			this.base(node);
+
+			this.calcValue = function() {
+				var p = this.progress();
+
+				// tween value linearly
+				var newValue = p.from.numValue() + (p.to.numValue() - p.from.numValue()) * p.progress;
+				return newValue + this.initialUnits;
+			};
+		}
+		svg.Element.animate.prototype = new svg.Element.AnimateBase;
+
+		// animate color element
+		svg.Element.animateColor = function(node) {
+			this.base = svg.Element.AnimateBase;
+			this.base(node);
+
+			this.calcValue = function() {
+				var p = this.progress();
+				var from = new RGBColor(p.from.value);
+				var to = new RGBColor(p.to.value);
+
+				if (from.ok && to.ok) {
+					// tween color linearly
+					var r = from.r + (to.r - from.r) * p.progress;
+					var g = from.g + (to.g - from.g) * p.progress;
+					var b = from.b + (to.b - from.b) * p.progress;
+					return 'rgb('+parseInt(r,10)+','+parseInt(g,10)+','+parseInt(b,10)+')';
+				}
+				return this.attribute('from').value;
+			};
+		}
+		svg.Element.animateColor.prototype = new svg.Element.AnimateBase;
+
+		// animate transform element
+		svg.Element.animateTransform = function(node) {
+			this.base = svg.Element.AnimateBase;
+			this.base(node);
+
+			this.calcValue = function() {
+				var p = this.progress();
+
+				// tween value linearly
+				var from = svg.ToNumberArray(p.from.value);
+				var to = svg.ToNumberArray(p.to.value);
+				var newValue = '';
+				for (var i=0; i<from.length; i++) {
+					newValue += from[i] + (to[i] - from[i]) * p.progress + ' ';
+				}
+				return newValue;
+			};
+		}
+		svg.Element.animateTransform.prototype = new svg.Element.animate;
+
+		// font element
+		svg.Element.font = function(node) {
+			this.base = svg.Element.ElementBase;
+			this.base(node);
+
+			this.horizAdvX = this.attribute('horiz-adv-x').numValue();
+
+			this.isRTL = false;
+			this.isArabic = false;
+			this.fontFace = null;
+			this.missingGlyph = null;
+			this.glyphs = [];
+			for (var i=0; i<this.children.length; i++) {
+				var child = this.children[i];
+				if (child.type == 'font-face') {
+					this.fontFace = child;
+					if (child.style('font-family').hasValue()) {
+						svg.Definitions[child.style('font-family').value] = this;
+					}
+				}
+				else if (child.type == 'missing-glyph') this.missingGlyph = child;
+				else if (child.type == 'glyph') {
+					if (child.arabicForm != '') {
+						this.isRTL = true;
+						this.isArabic = true;
+						if (typeof this.glyphs[child.unicode] == 'undefined') this.glyphs[child.unicode] = [];
+						this.glyphs[child.unicode][child.arabicForm] = child;
+					}
+					else {
+						this.glyphs[child.unicode] = child;
+					}
+				}
+			}
+		}
+		svg.Element.font.prototype = new svg.Element.ElementBase;
+
+		// font-face element
+		svg.Element.fontface = function(node) {
+			this.base = svg.Element.ElementBase;
+			this.base(node);
+
+			this.ascent = this.attribute('ascent').value;
+			this.descent = this.attribute('descent').value;
+			this.unitsPerEm = this.attribute('units-per-em').numValue();
+		}
+		svg.Element.fontface.prototype = new svg.Element.ElementBase;
+
+		// missing-glyph element
+		svg.Element.missingglyph = function(node) {
+			this.base = svg.Element.path;
+			this.base(node);
+
+			this.horizAdvX = 0;
+		}
+		svg.Element.missingglyph.prototype = new svg.Element.path;
+
+		// glyph element
+		svg.Element.glyph = function(node) {
+			this.base = svg.Element.path;
+			this.base(node);
+
+			this.horizAdvX = this.attribute('horiz-adv-x').numValue();
+			this.unicode = this.attribute('unicode').value;
+			this.arabicForm = this.attribute('arabic-form').value;
+		}
+		svg.Element.glyph.prototype = new svg.Element.path;
+
+		// text element
+		svg.Element.text = function(node) {
+			this.captureTextNodes = true;
+			this.base = svg.Element.RenderedElementBase;
+			this.base(node);
+
+			this.baseSetContext = this.setContext;
+			this.setContext = function(ctx) {
+				this.baseSetContext(ctx);
+
+				var textBaseline = this.style('dominant-baseline').toTextBaseline();
+				if (textBaseline == null) textBaseline = this.style('alignment-baseline').toTextBaseline();
+				if (textBaseline != null) ctx.textBaseline = textBaseline;
+			}
+
+			this.getBoundingBox = function () {
+				var x = this.attribute('x').toPixels('x');
+				var y = this.attribute('y').toPixels('y');
+				var fontSize = this.parent.style('font-size').numValueOrDefault(svg.Font.Parse(svg.ctx.font).fontSize);
+				return new svg.BoundingBox(x, y - fontSize, x + Math.floor(fontSize * 2.0 / 3.0) * this.children[0].getText().length, y);
+			}
+
+			this.renderChildren = function(ctx) {
+				this.x = this.attribute('x').toPixels('x');
+				this.y = this.attribute('y').toPixels('y');
+				if (this.attribute('dx').hasValue()) this.x += this.attribute('dx').toPixels('x');
+				if (this.attribute('dy').hasValue()) this.y += this.attribute('dy').toPixels('y');
+				this.x += this.getAnchorDelta(ctx, this, 0);
+				for (var i=0; i<this.children.length; i++) {
+					this.renderChild(ctx, this, this, i);
+				}
+			}
+
+			this.getAnchorDelta = function (ctx, parent, startI) {
+				var textAnchor = this.style('text-anchor').valueOrDefault('start');
+				if (textAnchor != 'start') {
+					var width = 0;
+					for (var i=startI; i<parent.children.length; i++) {
+						var child = parent.children[i];
+						if (i > startI && child.attribute('x').hasValue()) break; // new group
+						width += child.measureTextRecursive(ctx);
+					}
+					return -1 * (textAnchor == 'end' ? width : width / 2.0);
+				}
+				return 0;
+			}
+
+			this.renderChild = function(ctx, textParent, parent, i) {
+				var child = parent.children[i];
+				if (child.attribute('x').hasValue()) {
+					child.x = child.attribute('x').toPixels('x') + textParent.getAnchorDelta(ctx, parent, i);
+					if (child.attribute('dx').hasValue()) child.x += child.attribute('dx').toPixels('x');
+				}
+				else {
+					if (child.attribute('dx').hasValue()) textParent.x += child.attribute('dx').toPixels('x');
+					child.x = textParent.x;
+				}
+				textParent.x = child.x + child.measureText(ctx);
+
+				if (child.attribute('y').hasValue()) {
+					child.y = child.attribute('y').toPixels('y');
+					if (child.attribute('dy').hasValue()) child.y += child.attribute('dy').toPixels('y');
+				}
+				else {
+					if (child.attribute('dy').hasValue()) textParent.y += child.attribute('dy').toPixels('y');
+					child.y = textParent.y;
+				}
+				textParent.y = child.y;
+
+				child.render(ctx);
+
+				for (var i=0; i<child.children.length; i++) {
+					textParent.renderChild(ctx, textParent, child, i);
+				}
+			}
+		}
+		svg.Element.text.prototype = new svg.Element.RenderedElementBase;
+
+		// text base
+		svg.Element.TextElementBase = function(node) {
+			this.base = svg.Element.RenderedElementBase;
+			this.base(node);
+
+			this.getGlyph = function(font, text, i) {
+				var c = text[i];
+				var glyph = null;
+				if (font.isArabic) {
+					var arabicForm = 'isolated';
+					if ((i==0 || text[i-1]==' ') && i<text.length-2 && text[i+1]!=' ') arabicForm = 'terminal';
+					if (i>0 && text[i-1]!=' ' && i<text.length-2 && text[i+1]!=' ') arabicForm = 'medial';
+					if (i>0 && text[i-1]!=' ' && (i == text.length-1 || text[i+1]==' ')) arabicForm = 'initial';
+					if (typeof font.glyphs[c] != 'undefined') {
+						glyph = font.glyphs[c][arabicForm];
+						if (glyph == null && font.glyphs[c].type == 'glyph') glyph = font.glyphs[c];
+					}
+				}
+				else {
+					glyph = font.glyphs[c];
+				}
+				if (glyph == null) glyph = font.missingGlyph;
+				return glyph;
+			}
+
+			this.renderChildren = function(ctx) {
+				var customFont = this.parent.style('font-family').getDefinition();
+				if (customFont != null) {
+					var fontSize = this.parent.style('font-size').numValueOrDefault(svg.Font.Parse(svg.ctx.font).fontSize);
+					var fontStyle = this.parent.style('font-style').valueOrDefault(svg.Font.Parse(svg.ctx.font).fontStyle);
+					var text = this.getText();
+					if (customFont.isRTL) text = text.split("").reverse().join("");
+
+					var dx = svg.ToNumberArray(this.parent.attribute('dx').value);
+					for (var i=0; i<text.length; i++) {
+						var glyph = this.getGlyph(customFont, text, i);
+						var scale = fontSize / customFont.fontFace.unitsPerEm;
+						ctx.translate(this.x, this.y);
+						ctx.scale(scale, -scale);
+						var lw = ctx.lineWidth;
+						ctx.lineWidth = ctx.lineWidth * customFont.fontFace.unitsPerEm / fontSize;
+						if (fontStyle == 'italic') ctx.transform(1, 0, .4, 1, 0, 0);
+						glyph.render(ctx);
+						if (fontStyle == 'italic') ctx.transform(1, 0, -.4, 1, 0, 0);
+						ctx.lineWidth = lw;
+						ctx.scale(1/scale, -1/scale);
+						ctx.translate(-this.x, -this.y);
+
+						this.x += fontSize * (glyph.horizAdvX || customFont.horizAdvX) / customFont.fontFace.unitsPerEm;
+						if (typeof dx[i] != 'undefined' && !isNaN(dx[i])) {
+							this.x += dx[i];
+						}
+					}
+					return;
+				}
+				if(ctx.paintOrder == "stroke") {
+					if (ctx.strokeStyle != '') ctx.strokeText(svg.compressSpaces(this.getText()), this.x, this.y);
+					if (ctx.fillStyle != '') ctx.fillText(svg.compressSpaces(this.getText()), this.x, this.y);
+				} else {
+					if (ctx.fillStyle != '') ctx.fillText(svg.compressSpaces(this.getText()), this.x, this.y);
+					if (ctx.strokeStyle != '') ctx.strokeText(svg.compressSpaces(this.getText()), this.x, this.y);
+				}
+			}
+
+			this.getText = function() {
+				// OVERRIDE ME
+			}
+
+			this.measureTextRecursive = function(ctx) {
+				var width = this.measureText(ctx);
+				for (var i=0; i<this.children.length; i++) {
+					width += this.children[i].measureTextRecursive(ctx);
+				}
+				return width;
+			}
+
+			this.measureText = function(ctx) {
+				var customFont = this.parent.style('font-family').getDefinition();
+				if (customFont != null) {
+					var fontSize = this.parent.style('font-size').numValueOrDefault(svg.Font.Parse(svg.ctx.font).fontSize);
+					var measure = 0;
+					var text = this.getText();
+					if (customFont.isRTL) text = text.split("").reverse().join("");
+					var dx = svg.ToNumberArray(this.parent.attribute('dx').value);
+					for (var i=0; i<text.length; i++) {
+						var glyph = this.getGlyph(customFont, text, i);
+						measure += (glyph.horizAdvX || customFont.horizAdvX) * fontSize / customFont.fontFace.unitsPerEm;
+						if (typeof dx[i] != 'undefined' && !isNaN(dx[i])) {
+							measure += dx[i];
+						}
+					}
+					return measure;
+				}
+
+				var textToMeasure = svg.compressSpaces(this.getText());
+				if (!ctx.measureText) return textToMeasure.length * 10;
+
+				ctx.save();
+				this.setContext(ctx);
+				var width = ctx.measureText(textToMeasure).width;
+				ctx.restore();
+				return width;
+			}
+		}
+		svg.Element.TextElementBase.prototype = new svg.Element.RenderedElementBase;
+
+		// tspan
+		svg.Element.tspan = function(node) {
+			this.captureTextNodes = true;
+			this.base = svg.Element.TextElementBase;
+			this.base(node);
+
+			this.text = svg.compressSpaces(node.value || node.text || node.textContent || '');
+			this.getText = function() {
+				// if this node has children, then they own the text
+				if (this.children.length > 0) { return ''; }
+				return this.text;
+			}
+		}
+		svg.Element.tspan.prototype = new svg.Element.TextElementBase;
+
+		// tref
+		svg.Element.tref = function(node) {
+			this.base = svg.Element.TextElementBase;
+			this.base(node);
+
+			this.getText = function() {
+				var element = this.getHrefAttribute().getDefinition();
+				if (element != null) return element.children[0].getText();
+			}
+		}
+		svg.Element.tref.prototype = new svg.Element.TextElementBase;
+
+		// a element
+		svg.Element.a = function(node) {
+			this.base = svg.Element.TextElementBase;
+			this.base(node);
+
+			this.hasText = node.childNodes.length > 0;
+			for (var i=0; i<node.childNodes.length; i++) {
+				if (node.childNodes[i].nodeType != 3) this.hasText = false;
+			}
+
+			// this might contain text
+			this.text = this.hasText ? node.childNodes[0].value : '';
+			this.getText = function() {
+				return this.text;
+			}
+
+			this.baseRenderChildren = this.renderChildren;
+			this.renderChildren = function(ctx) {
+				if (this.hasText) {
+					// render as text element
+					this.baseRenderChildren(ctx);
+					var fontSize = new svg.Property('fontSize', svg.Font.Parse(svg.ctx.font).fontSize);
+					svg.Mouse.checkBoundingBox(this, new svg.BoundingBox(this.x, this.y - fontSize.toPixels('y'), this.x + this.measureText(ctx), this.y));
+				}
+				else if (this.children.length > 0) {
+					// render as temporary group
+					var g = new svg.Element.g();
+					g.children = this.children;
+					g.parent = this;
+					g.render(ctx);
+				}
+			}
+
+			this.onclick = function() {
+				window.open(this.getHrefAttribute().value);
+			}
+
+			this.onmousemove = function() {
+				svg.ctx.canvas.style.cursor = 'pointer';
+			}
+		}
+		svg.Element.a.prototype = new svg.Element.TextElementBase;
+
+		// image element
+		svg.Element.image = function(node) {
+			this.base = svg.Element.RenderedElementBase;
+			this.base(node);
+
+			var href = this.getHrefAttribute().value;
+			if (href == '') { return; }
+			var isSvg = href.match(/\.svg$/)
+
+			svg.Images.push(this);
+			this.loaded = false;
+			if (!isSvg) {
+				this.img = document.createElement('img');
+				if (svg.opts['useCORS'] == true) { this.img.crossOrigin = 'Anonymous'; }
+				var self = this;
+				this.img.onload = function() { self.loaded = true; }
+				this.img.onerror = function() { svg.log('ERROR: image "' + href + '" not found'); self.loaded = true; }
+				this.img.src = href;
+			}
+			else {
+				this.img = svg.ajax(href);
+				this.loaded = true;
+			}
+
+			this.renderChildren = function(ctx) {
+				var x = this.attribute('x').toPixels('x');
+				var y = this.attribute('y').toPixels('y');
+
+				var width = this.attribute('width').toPixels('x');
+				var height = this.attribute('height').toPixels('y');
+				if (width == 0 || height == 0) return;
+
+				ctx.save();
+				if (isSvg) {
+					ctx.drawSvg(this.img, x, y, width, height);
+				}
+				else {
+					ctx.translate(x, y);
+					svg.AspectRatio(ctx,
+									this.attribute('preserveAspectRatio').value,
+									width,
+									this.img.width,
+									height,
+									this.img.height,
+									0,
+									0);
+					ctx.drawImage(this.img, 0, 0);
+				}
+				ctx.restore();
+			}
+
+			this.getBoundingBox = function() {
+				var x = this.attribute('x').toPixels('x');
+				var y = this.attribute('y').toPixels('y');
+				var width = this.attribute('width').toPixels('x');
+				var height = this.attribute('height').toPixels('y');
+				return new svg.BoundingBox(x, y, x + width, y + height);
+			}
+		}
+		svg.Element.image.prototype = new svg.Element.RenderedElementBase;
+
+		// group element
+		svg.Element.g = function(node) {
+			this.base = svg.Element.RenderedElementBase;
+			this.base(node);
+
+			this.getBoundingBox = function() {
+				var bb = new svg.BoundingBox();
+				for (var i=0; i<this.children.length; i++) {
+					bb.addBoundingBox(this.children[i].getBoundingBox());
+				}
+				return bb;
+			};
+		}
+		svg.Element.g.prototype = new svg.Element.RenderedElementBase;
+
+		// symbol element
+		svg.Element.symbol = function(node) {
+			this.base = svg.Element.RenderedElementBase;
+			this.base(node);
+
+			this.render = function(ctx) {
+				// NO RENDER
+			};
+		}
+		svg.Element.symbol.prototype = new svg.Element.RenderedElementBase;
+
+		// style element
+		svg.Element.style = function(node) {
+			this.base = svg.Element.ElementBase;
+			this.base(node);
+
+			// text, or spaces then CDATA
+			var css = ''
+			for (var i=0; i<node.childNodes.length; i++) {
+			  css += node.childNodes[i].data;
+			}
+			css = css.replace(/(\/\*([^*]|[\r\n]|(\*+([^*\/]|[\r\n])))*\*+\/)|(^[\s]*\/\/.*)/gm, ''); // remove comments
+			css = svg.compressSpaces(css); // replace whitespace
+			var cssDefs = css.split('}');
+			for (var i=0; i<cssDefs.length; i++) {
+				if (svg.trim(cssDefs[i]) != '') {
+					var cssDef = cssDefs[i].split('{');
+					var cssClasses = cssDef[0].split(',');
+					var cssProps = cssDef[1].split(';');
+					for (var j=0; j<cssClasses.length; j++) {
+						var cssClass = svg.trim(cssClasses[j]);
+						if (cssClass != '') {
+							var props = svg.Styles[cssClass] || {};
+							for (var k=0; k<cssProps.length; k++) {
+								var prop = cssProps[k].indexOf(':');
+								var name = cssProps[k].substr(0, prop);
+								var value = cssProps[k].substr(prop + 1, cssProps[k].length - prop);
+								if (name != null && value != null) {
+									props[svg.trim(name)] = new svg.Property(svg.trim(name), svg.trim(value));
+								}
+							}
+							svg.Styles[cssClass] = props;
+							svg.StylesSpecificity[cssClass] = getSelectorSpecificity(cssClass);
+							if (cssClass == '@font-face') {
+								var fontFamily = props['font-family'].value.replace(/"/g,'');
+								var srcs = props['src'].value.split(',');
+								for (var s=0; s<srcs.length; s++) {
+									if (srcs[s].indexOf('format("svg")') > 0) {
+										var urlStart = srcs[s].indexOf('url');
+										var urlEnd = srcs[s].indexOf(')', urlStart);
+										var url = srcs[s].substr(urlStart + 5, urlEnd - urlStart - 6);
+										var doc = svg.parseXml(svg.ajax(url));
+										var fonts = doc.getElementsByTagName('font');
+										for (var f=0; f<fonts.length; f++) {
+											var font = svg.CreateElement(fonts[f]);
+											svg.Definitions[fontFamily] = font;
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+		svg.Element.style.prototype = new svg.Element.ElementBase;
+
+		// use element
+		svg.Element.use = function(node) {
+			this.base = svg.Element.RenderedElementBase;
+			this.base(node);
+
+			this.baseSetContext = this.setContext;
+			this.setContext = function(ctx) {
+				this.baseSetContext(ctx);
+				if (this.attribute('x').hasValue()) ctx.translate(this.attribute('x').toPixels('x'), 0);
+				if (this.attribute('y').hasValue()) ctx.translate(0, this.attribute('y').toPixels('y'));
+			}
+
+			var element = this.getHrefAttribute().getDefinition();
+
+			this.path = function(ctx) {
+				if (element != null) element.path(ctx);
+			}
+
+			this.getBoundingBox = function() {
+				if (element != null) return element.getBoundingBox();
+			}
+
+			this.renderChildren = function(ctx) {
+				if (element != null) {
+					var tempSvg = element;
+					if (element.type == 'symbol') {
+						// render me using a temporary svg element in symbol cases (http://www.w3.org/TR/SVG/struct.html#UseElement)
+						tempSvg = new svg.Element.svg();
+						tempSvg.type = 'svg';
+						tempSvg.attributes['viewBox'] = new svg.Property('viewBox', element.attribute('viewBox').value);
+						tempSvg.attributes['preserveAspectRatio'] = new svg.Property('preserveAspectRatio', element.attribute('preserveAspectRatio').value);
+						tempSvg.attributes['overflow'] = new svg.Property('overflow', element.attribute('overflow').value);
+						tempSvg.children = element.children;
+					}
+					if (tempSvg.type == 'svg') {
+						// if symbol or svg, inherit width/height from me
+						if (this.attribute('width').hasValue()) tempSvg.attributes['width'] = new svg.Property('width', this.attribute('width').value);
+						if (this.attribute('height').hasValue()) tempSvg.attributes['height'] = new svg.Property('height', this.attribute('height').value);
+					}
+					var oldParent = tempSvg.parent;
+					tempSvg.parent = null;
+					tempSvg.render(ctx);
+					tempSvg.parent = oldParent;
+				}
+			}
+		}
+		svg.Element.use.prototype = new svg.Element.RenderedElementBase;
+
+		// mask element
+		svg.Element.mask = function(node) {
+			this.base = svg.Element.ElementBase;
+			this.base(node);
+
+			this.apply = function(ctx, element) {
+				// render as temp svg
+				var x = this.attribute('x').toPixels('x');
+				var y = this.attribute('y').toPixels('y');
+				var width = this.attribute('width').toPixels('x');
+				var height = this.attribute('height').toPixels('y');
+
+				if (width == 0 && height == 0) {
+					var bb = new svg.BoundingBox();
+					for (var i=0; i<this.children.length; i++) {
+						bb.addBoundingBox(this.children[i].getBoundingBox());
+					}
+					var x = Math.floor(bb.x1);
+					var y = Math.floor(bb.y1);
+					var width = Math.floor(bb.width());
+					var	height = Math.floor(bb.height());
+				}
+
+				// temporarily remove mask to avoid recursion
+				var mask = element.attribute('mask').value;
+				element.attribute('mask').value = '';
+
+					var cMask = document.createElement('canvas');
+					cMask.width = x + width;
+					cMask.height = y + height;
+					var maskCtx = cMask.getContext('2d');
+					this.renderChildren(maskCtx);
+
+					var c = document.createElement('canvas');
+					c.width = x + width;
+					c.height = y + height;
+					var tempCtx = c.getContext('2d');
+					element.render(tempCtx);
+					tempCtx.globalCompositeOperation = 'destination-in';
+					tempCtx.fillStyle = maskCtx.createPattern(cMask, 'no-repeat');
+					tempCtx.fillRect(0, 0, x + width, y + height);
+
+					ctx.fillStyle = tempCtx.createPattern(c, 'no-repeat');
+					ctx.fillRect(0, 0, x + width, y + height);
+
+				// reassign mask
+				element.attribute('mask').value = mask;
+			}
+
+			this.render = function(ctx) {
+				// NO RENDER
+			}
+		}
+		svg.Element.mask.prototype = new svg.Element.ElementBase;
+
+		// clip element
+		svg.Element.clipPath = function(node) {
+			this.base = svg.Element.ElementBase;
+			this.base(node);
+
+			this.apply = function(ctx) {
+				var oldBeginPath = CanvasRenderingContext2D.prototype.beginPath;
+				CanvasRenderingContext2D.prototype.beginPath = function () { };
+
+				var oldClosePath = CanvasRenderingContext2D.prototype.closePath;
+				CanvasRenderingContext2D.prototype.closePath = function () { };
+
+				oldBeginPath.call(ctx);
+				for (var i=0; i<this.children.length; i++) {
+					var child = this.children[i];
+					if (typeof child.path != 'undefined') {
+						var transform = null;
+						if (child.style('transform', false, true).hasValue()) {
+							transform = new svg.Transform(child.style('transform', false, true).value);
+							transform.apply(ctx);
+						}
+						child.path(ctx);
+						CanvasRenderingContext2D.prototype.closePath = oldClosePath;
+						if (transform) { transform.unapply(ctx); }
+					}
+				}
+				oldClosePath.call(ctx);
+				ctx.clip();
+
+				CanvasRenderingContext2D.prototype.beginPath = oldBeginPath;
+				CanvasRenderingContext2D.prototype.closePath = oldClosePath;
+			}
+
+			this.render = function(ctx) {
+				// NO RENDER
+			}
+		}
+		svg.Element.clipPath.prototype = new svg.Element.ElementBase;
+
+		// filters
+		svg.Element.filter = function(node) {
+			this.base = svg.Element.ElementBase;
+			this.base(node);
+
+			this.apply = function(ctx, element) {
+				// render as temp svg
+				var bb = element.getBoundingBox();
+				var x = Math.floor(bb.x1);
+				var y = Math.floor(bb.y1);
+				var width = Math.floor(bb.width());
+				var	height = Math.floor(bb.height());
+
+				// temporarily remove filter to avoid recursion
+				var filter = element.style('filter').value;
+				element.style('filter').value = '';
+
+				var px = 0, py = 0;
+				for (var i=0; i<this.children.length; i++) {
+					var efd = this.children[i].extraFilterDistance || 0;
+					px = Math.max(px, efd);
+					py = Math.max(py, efd);
+				}
+
+				var c = document.createElement('canvas');
+				c.width = width + 2*px;
+				c.height = height + 2*py;
+				var tempCtx = c.getContext('2d');
+				tempCtx.translate(-x + px, -y + py);
+				element.render(tempCtx);
+
+				// apply filters
+				for (var i=0; i<this.children.length; i++) {
+					if (typeof this.children[i].apply == 'function') {
+						this.children[i].apply(tempCtx, 0, 0, width + 2*px, height + 2*py);
+					}
+				}
+
+				// render on me
+				ctx.drawImage(c, 0, 0, width + 2*px, height + 2*py, x - px, y - py, width + 2*px, height + 2*py);
+
+				// reassign filter
+				element.style('filter', true).value = filter;
+			}
+
+			this.render = function(ctx) {
+				// NO RENDER
+			}
+		}
+		svg.Element.filter.prototype = new svg.Element.ElementBase;
+
+		svg.Element.feMorphology = function(node) {
+			this.base = svg.Element.ElementBase;
+			this.base(node);
+
+			this.apply = function(ctx, x, y, width, height) {
+				// TODO: implement
+			}
+		}
+		svg.Element.feMorphology.prototype = new svg.Element.ElementBase;
+
+		svg.Element.feComposite = function(node) {
+			this.base = svg.Element.ElementBase;
+			this.base(node);
+
+			this.apply = function(ctx, x, y, width, height) {
+				// TODO: implement
+			}
+		}
+		svg.Element.feComposite.prototype = new svg.Element.ElementBase;
+
+		svg.Element.feColorMatrix = function(node) {
+			this.base = svg.Element.ElementBase;
+			this.base(node);
+
+			var matrix = svg.ToNumberArray(this.attribute('values').value);
+			switch (this.attribute('type').valueOrDefault('matrix')) { // http://www.w3.org/TR/SVG/filters.html#feColorMatrixElement
+				case 'saturate':
+					var s = matrix[0];
+					matrix = [0.213+0.787*s,0.715-0.715*s,0.072-0.072*s,0,0,
+							  0.213-0.213*s,0.715+0.285*s,0.072-0.072*s,0,0,
+							  0.213-0.213*s,0.715-0.715*s,0.072+0.928*s,0,0,
+							  0,0,0,1,0,
+							  0,0,0,0,1];
+					break;
+				case 'hueRotate':
+					var a = matrix[0] * Math.PI / 180.0;
+					var c = function (m1,m2,m3) { return m1 + Math.cos(a)*m2 + Math.sin(a)*m3; };
+					matrix = [c(0.213,0.787,-0.213),c(0.715,-0.715,-0.715),c(0.072,-0.072,0.928),0,0,
+							  c(0.213,-0.213,0.143),c(0.715,0.285,0.140),c(0.072,-0.072,-0.283),0,0,
+							  c(0.213,-0.213,-0.787),c(0.715,-0.715,0.715),c(0.072,0.928,0.072),0,0,
+							  0,0,0,1,0,
+							  0,0,0,0,1];
+					break;
+				case 'luminanceToAlpha':
+					matrix = [0,0,0,0,0,
+							  0,0,0,0,0,
+							  0,0,0,0,0,
+							  0.2125,0.7154,0.0721,0,0,
+							  0,0,0,0,1];
+					break;
+			}
+
+			function imGet(img, x, y, width, height, rgba) {
+				return img[y*width*4 + x*4 + rgba];
+			}
+
+			function imSet(img, x, y, width, height, rgba, val) {
+				img[y*width*4 + x*4 + rgba] = val;
+			}
+
+			function m(i, v) {
+				var mi = matrix[i];
+				return mi * (mi < 0 ? v - 255 : v);
+			}
+
+			this.apply = function(ctx, x, y, width, height) {
+				// assuming x==0 && y==0 for now
+				var srcData = ctx.getImageData(0, 0, width, height);
+				for (var y = 0; y < height; y++) {
+					for (var x = 0; x < width; x++) {
+						var r = imGet(srcData.data, x, y, width, height, 0);
+						var g = imGet(srcData.data, x, y, width, height, 1);
+						var b = imGet(srcData.data, x, y, width, height, 2);
+						var a = imGet(srcData.data, x, y, width, height, 3);
+						imSet(srcData.data, x, y, width, height, 0, m(0,r)+m(1,g)+m(2,b)+m(3,a)+m(4,1));
+						imSet(srcData.data, x, y, width, height, 1, m(5,r)+m(6,g)+m(7,b)+m(8,a)+m(9,1));
+						imSet(srcData.data, x, y, width, height, 2, m(10,r)+m(11,g)+m(12,b)+m(13,a)+m(14,1));
+						imSet(srcData.data, x, y, width, height, 3, m(15,r)+m(16,g)+m(17,b)+m(18,a)+m(19,1));
+					}
+				}
+				ctx.clearRect(0, 0, width, height);
+				ctx.putImageData(srcData, 0, 0);
+			}
+		}
+		svg.Element.feColorMatrix.prototype = new svg.Element.ElementBase;
+
+		svg.Element.feGaussianBlur = function(node) {
+			this.base = svg.Element.ElementBase;
+			this.base(node);
+
+			this.blurRadius = Math.floor(this.attribute('stdDeviation').numValue());
+			this.extraFilterDistance = this.blurRadius;
+
+			this.apply = function(ctx, x, y, width, height) {
+				if (typeof stackBlur.canvasRGBA == 'undefined') {
+					svg.log('ERROR: StackBlur.js must be included for blur to work');
+					return;
+				}
+
+				// StackBlur requires canvas be on document
+				ctx.canvas.id = svg.UniqueId();
+				ctx.canvas.style.display = 'none';
+				document.body.appendChild(ctx.canvas);
+				stackBlur.canvasRGBA(ctx.canvas.id, x, y, width, height, this.blurRadius);
+				document.body.removeChild(ctx.canvas);
+			}
+		}
+		svg.Element.feGaussianBlur.prototype = new svg.Element.ElementBase;
+
+		// title element, do nothing
+		svg.Element.title = function(node) {
+		}
+		svg.Element.title.prototype = new svg.Element.ElementBase;
+
+		// desc element, do nothing
+		svg.Element.desc = function(node) {
+		}
+		svg.Element.desc.prototype = new svg.Element.ElementBase;
+
+		svg.Element.MISSING = function(node) {
+			svg.log('ERROR: Element \'' + node.nodeName + '\' not yet implemented.');
+		}
+		svg.Element.MISSING.prototype = new svg.Element.ElementBase;
+
+		// element factory
+		svg.CreateElement = function(node) {
+			var className = node.nodeName.replace(/^[^:]+:/,''); // remove namespace
+			className = className.replace(/\-/g,''); // remove dashes
+			var e = null;
+			if (typeof svg.Element[className] != 'undefined') {
+				e = new svg.Element[className](node);
+			}
+			else {
+				e = new svg.Element.MISSING(node);
+			}
+
+			e.type = node.nodeName;
+			return e;
+		}
+
+		// load from url
+		svg.load = function(ctx, url) {
+			svg.loadXml(ctx, svg.ajax(url));
+		}
+
+		// load from xml
+		svg.loadXml = function(ctx, xml) {
+			svg.loadXmlDoc(ctx, svg.parseXml(xml));
+		}
+
+		svg.loadXmlDoc = function(ctx, dom) {
+			svg.init(ctx);
+
+			var mapXY = function(p) {
+				var e = ctx.canvas;
+				while (e) {
+					p.x -= e.offsetLeft;
+					p.y -= e.offsetTop;
+					e = e.offsetParent;
+				}
+				if (window.scrollX) p.x += window.scrollX;
+				if (window.scrollY) p.y += window.scrollY;
+				return p;
+			}
+
+			// bind mouse
+			if (svg.opts['ignoreMouse'] != true) {
+				ctx.canvas.onclick = function(e) {
+					var p = mapXY(new svg.Point(e != null ? e.clientX : event.clientX, e != null ? e.clientY : event.clientY));
+					svg.Mouse.onclick(p.x, p.y);
+				};
+				ctx.canvas.onmousemove = function(e) {
+					var p = mapXY(new svg.Point(e != null ? e.clientX : event.clientX, e != null ? e.clientY : event.clientY));
+					svg.Mouse.onmousemove(p.x, p.y);
+				};
+			}
+
+			var e = svg.CreateElement(dom.documentElement);
+			e.root = true;
+			e.addStylesFromStyleDefinition();
+
+			// render loop
+			var isFirstRender = true;
+			var draw = function() {
+				svg.ViewPort.Clear();
+				if (ctx.canvas.parentNode) svg.ViewPort.SetCurrent(ctx.canvas.parentNode.clientWidth, ctx.canvas.parentNode.clientHeight);
+
+				if (svg.opts['ignoreDimensions'] != true) {
+					// set canvas size
+					if (e.style('width').hasValue()) {
+						ctx.canvas.width = e.style('width').toPixels('x');
+						ctx.canvas.style.width = ctx.canvas.width + 'px';
+					}
+					if (e.style('height').hasValue()) {
+						ctx.canvas.height = e.style('height').toPixels('y');
+						ctx.canvas.style.height = ctx.canvas.height + 'px';
+					}
+				}
+				var cWidth = ctx.canvas.clientWidth || ctx.canvas.width;
+				var cHeight = ctx.canvas.clientHeight || ctx.canvas.height;
+				if (svg.opts['ignoreDimensions'] == true && e.style('width').hasValue() && e.style('height').hasValue()) {
+					cWidth = e.style('width').toPixels('x');
+					cHeight = e.style('height').toPixels('y');
+				}
+				svg.ViewPort.SetCurrent(cWidth, cHeight);
+
+				if (svg.opts['offsetX'] != null) e.attribute('x', true).value = svg.opts['offsetX'];
+				if (svg.opts['offsetY'] != null) e.attribute('y', true).value = svg.opts['offsetY'];
+				if (svg.opts['scaleWidth'] != null || svg.opts['scaleHeight'] != null) {
+					var xRatio = null, yRatio = null, viewBox = svg.ToNumberArray(e.attribute('viewBox').value);
+
+					if (svg.opts['scaleWidth'] != null) {
+						if (e.attribute('width').hasValue()) xRatio = e.attribute('width').toPixels('x') / svg.opts['scaleWidth'];
+						else if (!isNaN(viewBox[2])) xRatio = viewBox[2] / svg.opts['scaleWidth'];
+					}
+
+					if (svg.opts['scaleHeight'] != null) {
+						if (e.attribute('height').hasValue()) yRatio = e.attribute('height').toPixels('y') / svg.opts['scaleHeight'];
+						else if (!isNaN(viewBox[3])) yRatio = viewBox[3] / svg.opts['scaleHeight'];
+					}
+
+					if (xRatio == null) { xRatio = yRatio; }
+					if (yRatio == null) { yRatio = xRatio; }
+
+					e.attribute('width', true).value = svg.opts['scaleWidth'];
+					e.attribute('height', true).value = svg.opts['scaleHeight'];
+					e.style('transform', true, true).value += ' scale('+(1.0/xRatio)+','+(1.0/yRatio)+')';
+				}
+
+				// clear and render
+				if (svg.opts['ignoreClear'] != true) {
+					ctx.clearRect(0, 0, cWidth, cHeight);
+				}
+				e.render(ctx);
+				if (isFirstRender) {
+					isFirstRender = false;
+					if (typeof svg.opts['renderCallback'] == 'function') svg.opts['renderCallback'](dom);
+				}
+			}
+
+			var waitingForImages = true;
+			if (svg.ImagesLoaded()) {
+				waitingForImages = false;
+				draw();
+			}
+			svg.intervalID = setInterval(function() {
+				var needUpdate = false;
+
+				if (waitingForImages && svg.ImagesLoaded()) {
+					waitingForImages = false;
+					needUpdate = true;
+				}
+
+				// need update from mouse events?
+				if (svg.opts['ignoreMouse'] != true) {
+					needUpdate = needUpdate | svg.Mouse.hasEvents();
+				}
+
+				// need update from animations?
+				if (svg.opts['ignoreAnimation'] != true) {
+					for (var i=0; i<svg.Animations.length; i++) {
+						needUpdate = needUpdate | svg.Animations[i].update(1000 / svg.FRAMERATE);
+					}
+				}
+
+				// need update from redraw?
+				if (typeof svg.opts['forceRedraw'] == 'function') {
+					if (svg.opts['forceRedraw']() == true) needUpdate = true;
+				}
+
+				// render if needed
+				if (needUpdate) {
+					draw();
+					svg.Mouse.runEvents(); // run and clear our events
+				}
+			}, 1000 / svg.FRAMERATE);
+		}
+
+		svg.stop = function() {
+			if (svg.intervalID) {
+				clearInterval(svg.intervalID);
+			}
+		}
+
+		svg.Mouse = new (function() {
+			this.events = [];
+			this.hasEvents = function() { return this.events.length != 0; }
+
+			this.onclick = function(x, y) {
+				this.events.push({ type: 'onclick', x: x, y: y,
+					run: function(e) { if (e.onclick) e.onclick(); }
+				});
+			}
+
+			this.onmousemove = function(x, y) {
+				this.events.push({ type: 'onmousemove', x: x, y: y,
+					run: function(e) { if (e.onmousemove) e.onmousemove(); }
+				});
+			}
+
+			this.eventElements = [];
+
+			this.checkPath = function(element, ctx) {
+				for (var i=0; i<this.events.length; i++) {
+					var e = this.events[i];
+					if (ctx.isPointInPath && ctx.isPointInPath(e.x, e.y)) this.eventElements[i] = element;
+				}
+			}
+
+			this.checkBoundingBox = function(element, bb) {
+				for (var i=0; i<this.events.length; i++) {
+					var e = this.events[i];
+					if (bb.isPointInBox(e.x, e.y)) this.eventElements[i] = element;
+				}
+			}
+
+			this.runEvents = function() {
+				svg.ctx.canvas.style.cursor = '';
+
+				for (var i=0; i<this.events.length; i++) {
+					var e = this.events[i];
+					var element = this.eventElements[i];
+					while (element) {
+						e.run(element);
+						element = element.parent;
+					}
+				}
+
+				// done running, clear
+				this.events = [];
+				this.eventElements = [];
+			}
+		});
+
+		return svg;
+	};
+
+	if (typeof CanvasRenderingContext2D  != 'undefined') {
+		CanvasRenderingContext2D.prototype.drawSvg = function(s, dx, dy, dw, dh, opts) {
+			var cOpts = {
+				ignoreMouse: true,
+				ignoreAnimation: true,
+				ignoreDimensions: true,
+				ignoreClear: true,
+				offsetX: dx,
+				offsetY: dy,
+				scaleWidth: dw,
+				scaleHeight: dh
+			}
+
+			for(var prop in opts) {
+				if(opts.hasOwnProperty(prop)){
+					cOpts[prop] = opts[prop];
+				}
+			}
+			canvg(this.canvas, s, cOpts);
+		}
+	}
+
+	return canvg;
+
+}));
+
+},{"rgbcolor":73,"stackblur":74}],11:[function(require,module,exports){
+module.exports = {
+  "align-content": "stretch",
+  "align-items": "stretch",
+  "align-self": "auto",
+  "animation-delay": "0s",
+  "animation-direction": "normal",
+  "animation-duration": "0s",
+  "animation-fill-mode": "none",
+  "animation-iteration-count": "1",
+  "animation-name": "none",
+  "animation-play-state": "running",
+  "animation-timing-function": "ease",
+  "azimuth": "center",
+  "backface-visibility": "visible",
+  "background-attachment": "scroll",
+  "background-blend-mode": "normal",
+  "background-clip": "border-box",
+  "background-color": "transparent",
+  "background-image": "none",
+  "background-origin": "padding-box",
+  "background-position": "0% 0%",
+  "background-repeat": "repeat",
+  "background-size": "auto auto",
+  "block-size": "auto",
+  "border-block-end-color": "currentcolor",
+  "border-block-end-style": "none",
+  "border-block-end-width": "medium",
+  "border-block-start-color": "currentcolor",
+  "border-block-start-style": "none",
+  "border-block-start-width": "medium",
+  "border-bottom-color": "currentcolor",
+  "border-bottom-left-radius": "0",
+  "border-bottom-right-radius": "0",
+  "border-bottom-style": "none",
+  "border-bottom-width": "medium",
+  "border-collapse": "separate",
+  "border-image-outset": "0s",
+  "border-image-repeat": "stretch",
+  "border-image-slice": "100%",
+  "border-image-source": "none",
+  "border-image-width": "1",
+  "border-inline-end-color": "currentcolor",
+  "border-inline-end-style": "none",
+  "border-inline-end-width": "medium",
+  "border-inline-start-color": "currentcolor",
+  "border-inline-start-style": "none",
+  "border-inline-start-width": "medium",
+  "border-left-color": "currentcolor",
+  "border-left-style": "none",
+  "border-left-width": "medium",
+  "border-right-color": "currentcolor",
+  "border-right-style": "none",
+  "border-right-width": "medium",
+  "border-spacing": "0",
+  "border-top-color": "currentcolor",
+  "border-top-left-radius": "0",
+  "border-top-right-radius": "0",
+  "border-top-style": "none",
+  "border-top-width": "medium",
+  "bottom": "auto",
+  "box-decoration-break": "slice",
+  "box-shadow": "none",
+  "box-sizing": "content-box",
+  "break-after": "auto",
+  "break-before": "auto",
+  "break-inside": "auto",
+  "caption-side": "top",
+  "caret-color": "auto",
+  "clear": "none",
+  "clip": "auto",
+  "clip-path": "none",
+  "color": "initial",
+  "column-count": "auto",
+  "column-fill": "balance",
+  "column-gap": "normal",
+  "column-rule-color": "currentcolor",
+  "column-rule-style": "none",
+  "column-rule-width": "medium",
+  "column-span": "none",
+  "column-width": "auto",
+  "content": "normal",
+  "counter-increment": "none",
+  "counter-reset": "none",
+  "cursor": "auto",
+  "display": "inline",
+  "empty-cells": "show",
+  "filter": "none",
+  "flex-basis": "auto",
+  "flex-direction": "row",
+  "flex-grow": "0",
+  "flex-shrink": "1",
+  "flex-wrap": "nowrap",
+  "float": "none",
+  "font-family": "initial",
+  "font-feature-settings": "normal",
+  "font-kerning": "auto",
+  "font-language-override": "normal",
+  "font-size": "medium",
+  "font-size-adjust": "none",
+  "font-stretch": "normal",
+  "font-style": "normal",
+  "font-synthesis": "weight style",
+  "font-variant": "normal",
+  "font-variant-alternates": "normal",
+  "font-variant-caps": "normal",
+  "font-variant-east-asian": "normal",
+  "font-variant-ligatures": "normal",
+  "font-variant-numeric": "normal",
+  "font-variant-position": "normal",
+  "font-weight": "normal",
+  "grid-auto-columns": "auto",
+  "grid-auto-flow": "row",
+  "grid-auto-rows": "auto",
+  "grid-column-end": "auto",
+  "grid-column-gap": "0",
+  "grid-column-start": "auto",
+  "grid-row-end": "auto",
+  "grid-row-gap": "0",
+  "grid-row-start": "auto",
+  "grid-template-areas": "none",
+  "grid-template-columns": "none",
+  "grid-template-rows": "none",
+  "height": "auto",
+  "hyphens": "manual",
+  "image-orientation": "0deg",
+  "image-rendering": "auto",
+  "image-resolution": "1dppx",
+  "ime-mode": "auto",
+  "inline-size": "auto",
+  "isolation": "auto",
+  "justify-content": "flex-start",
+  "left": "auto",
+  "letter-spacing": "normal",
+  "line-break": "auto",
+  "line-height": "normal",
+  "list-style-image": "none",
+  "list-style-position": "outside",
+  "list-style-type": "disc",
+  "margin-block-end": "0",
+  "margin-block-start": "0",
+  "margin-bottom": "0",
+  "margin-inline-end": "0",
+  "margin-inline-start": "0",
+  "margin-left": "0",
+  "margin-right": "0",
+  "margin-top": "0",
+  "mask-clip": "border-box",
+  "mask-composite": "add",
+  "mask-image": "none",
+  "mask-mode": "match-source",
+  "mask-origin": "border-box",
+  "mask-position": "0% 0%",
+  "mask-repeat": "repeat",
+  "mask-size": "auto",
+  "mask-type": "luminance",
+  "max-height": "none",
+  "max-width": "none",
+  "min-block-size": "0",
+  "min-height": "0",
+  "min-inline-size": "0",
+  "min-width": "0",
+  "mix-blend-mode": "normal",
+  "object-fit": "fill",
+  "object-position": "50% 50%",
+  "offset-block-end": "auto",
+  "offset-block-start": "auto",
+  "offset-inline-end": "auto",
+  "offset-inline-start": "auto",
+  "opacity": "1.0",
+  "order": "0",
+  "orphans": "2",
+  "outline-color": "initial",
+  "outline-offset": "0",
+  "outline-style": "none",
+  "outline-width": "medium",
+  "overflow": "visible",
+  "overflow-wrap": "normal",
+  "overflow-x": "visible",
+  "overflow-y": "visible",
+  "padding-block-end": "0",
+  "padding-block-start": "0",
+  "padding-bottom": "0",
+  "padding-inline-end": "0",
+  "padding-inline-start": "0",
+  "padding-left": "0",
+  "padding-right": "0",
+  "padding-top": "0",
+  "page-break-after": "auto",
+  "page-break-before": "auto",
+  "page-break-inside": "auto",
+  "perspective": "none",
+  "perspective-origin": "50% 50%",
+  "pointer-events": "auto",
+  "position": "static",
+  "quotes": "initial",
+  "resize": "none",
+  "right": "auto",
+  "ruby-align": "space-around",
+  "ruby-merge": "separate",
+  "ruby-position": "over",
+  "scroll-behavior": "auto",
+  "scroll-snap-coordinate": "none",
+  "scroll-snap-destination": "0px 0px",
+  "scroll-snap-points-x": "none",
+  "scroll-snap-points-y": "none",
+  "scroll-snap-type": "none",
+  "shape-image-threshold": "0.0",
+  "shape-margin": "0",
+  "shape-outside": "none",
+  "tab-size": "8",
+  "table-layout": "auto",
+  "text-align": "initial",
+  "text-align-last": "auto",
+  "text-combine-upright": "none",
+  "text-decoration-color": "currentcolor",
+  "text-decoration-line": "none",
+  "text-decoration-style": "solid",
+  "text-emphasis-color": "currentcolor",
+  "text-emphasis-position": "over right",
+  "text-emphasis-style": "none",
+  "text-indent": "0",
+  "text-justify": "auto",
+  "text-orientation": "mixed",
+  "text-overflow": "clip",
+  "text-rendering": "auto",
+  "text-shadow": "none",
+  "text-transform": "none",
+  "text-underline-position": "auto",
+  "top": "auto",
+  "touch-action": "auto",
+  "transform": "none",
+  "transform-box": "border-box ",
+  "transform-origin": "50% 50% 0",
+  "transform-style": "flat",
+  "transition-delay": "0s",
+  "transition-duration": "0s",
+  "transition-property": "all",
+  "transition-timing-function": "ease",
+  "vertical-align": "baseline",
+  "visibility": "visible",
+  "white-space": "normal",
+  "widows": "2",
+  "width": "auto",
+  "will-change": "auto",
+  "word-break": "normal",
+  "word-spacing": "normal",
+  "word-wrap": "normal",
+  "writing-mode": "horizontal-tb",
+  "z-index": "auto",
+  "-webkit-appearance": "none",
+  "-moz-appearance": "none",
+  "-ms-appearance": "none",
+  "appearance": "none"
+};
+},{}],12:[function(require,module,exports){
+module.exports = require('./all')
+
+},{"./all":11}],13:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -2309,7 +5717,7 @@ var LineBreaker = exports.LineBreaker = function LineBreaker(str, options) {
         }
     };
 };
-},{"./Trie":11,"./Util":12,"./linebreak-trie":14}],11:[function(require,module,exports){
+},{"./Trie":14,"./Util":15,"./linebreak-trie":17}],14:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -2469,7 +5877,7 @@ var Trie = exports.Trie = function () {
 
     return Trie;
 }();
-},{"./Util":12}],12:[function(require,module,exports){
+},{"./Util":15}],15:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -2585,7 +5993,7 @@ var polyUint32Array = exports.polyUint32Array = function polyUint32Array(buffer)
     }
     return bytes;
 };
-},{}],13:[function(require,module,exports){
+},{}],16:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -2615,11 +6023,11 @@ Object.defineProperty(exports, 'LineBreaker', {
     return _LineBreak.LineBreaker;
   }
 });
-},{"./LineBreak":10,"./Util":12}],14:[function(require,module,exports){
+},{"./LineBreak":13,"./Util":15}],17:[function(require,module,exports){
 'use strict';
 
 module.exports = 'KwAAAAAAAAAACA4AIDoAAPAfAAACAAAAAAAIABAAGABAAEgAUABYAF4AZgBeAGYAYABoAHAAeABeAGYAfACEAIAAiACQAJgAoACoAK0AtQC9AMUAXgBmAF4AZgBeAGYAzQDVAF4AZgDRANkA3gDmAOwA9AD8AAQBDAEUARoBIgGAAIgAJwEvATcBPwFFAU0BTAFUAVwBZAFsAXMBewGDATAAiwGTAZsBogGkAawBtAG8AcIBygHSAdoB4AHoAfAB+AH+AQYCDgIWAv4BHgImAi4CNgI+AkUCTQJTAlsCYwJrAnECeQKBAk0CiQKRApkCoQKoArACuALAAsQCzAIwANQC3ALkAjAA7AL0AvwCAQMJAxADGAMwACADJgMuAzYDPgOAAEYDSgNSA1IDUgNaA1oDYANiA2IDgACAAGoDgAByA3YDfgOAAIQDgACKA5IDmgOAAIAAogOqA4AAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAK8DtwOAAIAAvwPHA88D1wPfAyAD5wPsA/QD/AOAAIAABAQMBBIEgAAWBB4EJgQuBDMEIAM7BEEEXgBJBCADUQRZBGEEaQQwADAAcQQ+AXkEgQSJBJEEgACYBIAAoASoBK8EtwQwAL8ExQSAAIAAgACAAIAAgACgAM0EXgBeAF4AXgBeAF4AXgBeANUEXgDZBOEEXgDpBPEE+QQBBQkFEQUZBSEFKQUxBTUFPQVFBUwFVAVcBV4AYwVeAGsFcwV7BYMFiwWSBV4AmgWgBacFXgBeAF4AXgBeAKsFXgCyBbEFugW7BcIFwgXIBcIFwgXQBdQF3AXkBesF8wX7BQMGCwYTBhsGIwYrBjMGOwZeAD8GRwZNBl4AVAZbBl4AXgBeAF4AXgBeAF4AXgBeAF4AXgBeAGMGXgBqBnEGXgBeAF4AXgBeAF4AXgBeAF4AXgB5BoAG4wSGBo4GkwaAAIADHgR5AF4AXgBeAJsGgABGA4AAowarBrMGswagALsGwwbLBjAA0wbaBtoG3QbaBtoG2gbaBtoG2gblBusG8wb7BgMHCwcTBxsHCwcjBysHMAc1BzUHOgdCB9oGSgdSB1oHYAfaBloHaAfaBlIH2gbaBtoG2gbaBtoG2gbaBjUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHbQdeAF4ANQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQd1B30HNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1B4MH2gaKB68EgACAAIAAgACAAIAAgACAAI8HlwdeAJ8HpweAAIAArwe3B14AXgC/B8UHygcwANAH2AfgB4AA6AfwBz4B+AcACFwBCAgPCBcIogEYAR8IJwiAAC8INwg/CCADRwhPCFcIXwhnCEoDGgSAAIAAgABvCHcIeAh5CHoIewh8CH0Idwh4CHkIegh7CHwIfQh3CHgIeQh6CHsIfAh9CHcIeAh5CHoIewh8CH0Idwh4CHkIegh7CHwIfQh3CHgIeQh6CHsIfAh9CHcIeAh5CHoIewh8CH0Idwh4CHkIegh7CHwIfQh3CHgIeQh6CHsIfAh9CHcIeAh5CHoIewh8CH0Idwh4CHkIegh7CHwIfQh3CHgIeQh6CHsIfAh9CHcIeAh5CHoIewh8CH0Idwh4CHkIegh7CHwIfQh3CHgIeQh6CHsIfAh9CHcIeAh5CHoIewh8CH0Idwh4CHkIegh7CHwIfQh3CHgIeQh6CHsIfAh9CHcIeAh5CHoIewh8CH0Idwh4CHkIegh7CHwIfQh3CHgIeQh6CHsIfAh9CHcIeAh5CHoIewh8CH0Idwh4CHkIegh7CHwIfQh3CHgIeQh6CHsIfAh9CHcIeAh5CHoIewh8CH0Idwh4CHkIegh7CHwIfQh3CHgIeQh6CHsIfAh9CHcIeAh5CHoIewh8CH0Idwh4CHkIegh7CHwIfQh3CHgIeQh6CHsIfAh9CHcIeAh5CHoIewh8CH0Idwh4CHkIegh7CHwIfQh3CHgIeQh6CHsIfAh9CHcIeAh5CHoIewh8CH0Idwh4CHkIegh7CHwIfQh3CHgIeQh6CHsIfAh9CHcIeAh5CHoIewh8CH0Idwh4CHkIegh7CHwIfQh3CHgIeQh6CHsIfAh9CHcIeAh5CHoIewh8CH0Idwh4CHkIegh7CHwIfQh3CHgIeQh6CHsIfAh9CHcIeAh5CHoIewh8CH0Idwh4CHkIegh7CHwIfQh3CHgIeQh6CHsIfAh9CHcIeAh5CHoIewh8CH0Idwh4CHkIegh7CHwIfQh3CHgIeQh6CHsIfAh9CHcIeAh5CHoIewh8CH0Idwh4CHkIegh7CHwIhAiLCI4IMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwAJYIlgiWCJYIlgiWCJYIlgiWCJYIlgiWCJYIlgiWCJYIlgiWCJYIlgiWCJYIlgiWCJYIlgiWCJYIlgiWCJYIlggwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAANQc1BzUHNQc1BzUHNQc1BzUHNQc1B54INQc1B6II2gaqCLIIugiAAIAAvgjGCIAAgACAAIAAgACAAIAAgACAAIAAywiHAYAA0wiAANkI3QjlCO0I9Aj8CIAAgACAAAIJCgkSCRoJIgknCTYHLwk3CZYIlgiWCJYIlgiWCJYIlgiWCJYIlgiWCJYIlgiWCJYIlgiWCJYIlgiWCJYIlgiWCJYIlgiWCJYIlgiWCJYIlgiAAIAAAAFAAXgBeAGAAcABeAHwAQACQAKAArQC9AJ4AXgBeAE0A3gBRAN4A7AD8AMwBGgEAAKcBNwEFAUwBXAF4QkhCmEKnArcCgAHHAsABz4LAAcABwAHAAd+C6ABoAG+C/4LAAcABwAHAAc+DF4MAAcAB54M3gweDV4Nng3eDaABoAGgAaABoAGgAaABoAGgAaABoAGgAaABoAGgAaABoAGgAaABoAEeDqABVg6WDqABoQ6gAaABoAHXDvcONw/3DvcO9w73DvcO9w73DvcO9w73DvcO9w73DvcO9w73DvcO9w73DvcO9w73DvcO9w73DvcO9w73DvcO9w73DncPAAcABwAHAAcABwAHAAcABwAHAAcABwAHAAcABwAHAAcABwAHAAcABwAHAAcABwAHAAcABwAHAAcABwAHAAcABwAHAAcABwAHAAcABwAHAAcABwAHAAcABwAHAAcABwAHAAcABwAHAAcABwAHAAcABwAHAAcABwAHAAcABwAHAAcABwAHAAcABwAHAAcABwAHAAcABwAHAAcABwAHAAcABwAHAAcABwAHAAcABwAHAAcABwAHAAcABwAHAAcABwAHAAcABwAHAAcABwAHAAcABwAHAAcABwAHAAcABwAHAAcABwAHAAcABwAHAAcABwAHAAcABwAHAAcABwAHAAcABwAHAAcABwAHAAcABwAHAAcABwAHAAcABwAHAAcABwAHAAcABwAHAAcABwAHAAcABwAHAAcABwAHAAcABwAHAAcABwAHAAcABwAHAAcABwAHAAcABwAHAAcABwAHAAcABwAHAAcABwAHAAcABwAHAAcABwAHAAcABwAHAAcABwAHAAcABwAHAAcABwAHAAcABwAHAAcABwAHAAcABwAHAAcABwAHAAcABwAHAAcABwAHAAcABwAHAAcABwAHAAcABwAHAAcABwAHAAcABwAHAAcABwAHAAcABwAHAAcABwAHAAcABwAHAAcABwAHAAcABwAHAAcABwAHAAcABwAHAAcABwAHAAcABwAHAAcABwAHAAcABwAHAAcABwAHAAcABwAHAAcABwAHAAcABwAHAAcABwAHAAcABwAHAAcABwAHAAcABwAHAAcABwAHAAcABwAHAAcABwAHAAcABwAHAAcABwAHAAcABwAHAAcABwAHAAcABwAHAAcABwAHAAcAB7cPPwlGCU4JMACAAIAAgABWCV4JYQmAAGkJcAl4CXwJgAkwADAAMAAwAIgJgACLCZMJgACZCZ8JowmrCYAAswkwAF4AXgB8AIAAuwkABMMJyQmAAM4JgADVCTAAMAAwADAAgACAAIAAgACAAIAAgACAAIAAqwYWBNkIMAAwADAAMADdCeAJ6AnuCR4E9gkwAP4JBQoNCjAAMACAABUK0wiAAB0KJAosCjQKgAAwADwKQwqAAEsKvQmdCVMKWwowADAAgACAALcEMACAAGMKgABrCjAAMAAwADAAMAAwADAAMAAwADAAMAAeBDAAMAAwADAAMAAwADAAMAAwADAAMAAwAIkEPQFzCnoKiQSCCooKkAqJBJgKoAqkCokEGAGsCrQKvArBCjAAMADJCtEKFQHZCuEK/gHpCvEKMAAwADAAMACAAIwE+QowAIAAPwEBCzAAMAAwADAAMACAAAkLEQswAIAAPwEZCyELgAAOCCkLMAAxCzkLMAAwADAAMAAwADAAXgBeAEELMAAwADAAMAAwADAAMAAwAEkLTQtVC4AAXAtkC4AAiQkwADAAMAAwADAAMAAwADAAbAtxC3kLgAuFC4sLMAAwAJMLlwufCzAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAApwswADAAMACAAIAAgACvC4AAgACAAIAAgACAALcLMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAvwuAAMcLgACAAIAAgACAAIAAyguAAIAAgACAAIAA0QswADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAANkLgACAAIAA4AswADAAMAAwADAAMAAwADAAMAAwADAAMAAwAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAIAAgACJCR4E6AswADAAhwHwC4AA+AsADAgMEAwwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMACAAIAAGAwdDCUMMAAwAC0MNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQw1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHPQwwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADUHNQc1BzUHNQc1BzUHNQc2BzAAMAA5DDUHNQc1BzUHNQc1BzUHNQc1BzUHNQdFDDAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAgACAAIAATQxSDFoMMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwAF4AXgBeAF4AXgBeAF4AYgxeAGoMXgBxDHkMfwxeAIUMXgBeAI0MMAAwADAAMAAwAF4AXgCVDJ0MMAAwADAAMABeAF4ApQxeAKsMswy7DF4Awgy9DMoMXgBeAF4AXgBeAF4AXgBeAF4AXgDRDNkMeQBqCeAM3Ax8AOYM7Az0DPgMXgBeAF4AXgBeAF4AXgBeAF4AXgBeAF4AXgBeAF4AXgCgAAANoAAHDQ4NFg0wADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAeDSYNMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwAIAAgACAAIAAgACAAC4NMABeAF4ANg0wADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwAD4NRg1ODVYNXg1mDTAAbQ0wADAAMAAwADAAMAAwADAA2gbaBtoG2gbaBtoG2gbaBnUNeg3CBYANwgWFDdoGjA3aBtoG2gbaBtoG2gbaBtoG2gbaBtoG2gaUDZwNpA2oDdoG2gawDbcNvw3HDdoG2gbPDdYN3A3fDeYN2gbsDfMN2gbaBvoN/g3aBgYODg7aBl4AXgBeABYOXgBeACUG2gYeDl4AJA5eACwO2w3aBtoGMQ45DtoG2gbaBtoGQQ7aBtoG2gbaBtoG2gbaBtoG2gbaBtoG2gbaBtoG2gbaBtoG2gbaBtoG2gbaBtoG2gbaBtoG2gbaBtoG2gbaBtoG2gbaBtoG2gbaBtoG2gbaBtoG2gbaBtoG2gbaBtoG2gZJDjUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1B1EO2gY1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQdZDjUHNQc1BzUHNQc1B2EONQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHaA41BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1B3AO2gbaBtoG2gbaBtoG2gbaBtoG2gbaBtoG2gbaBtoG2gbaBtoG2gbaBtoG2gbaBtoG2gbaBtoG2gbaBtoG2gbaBtoG2gbaBtoG2gbaBtoG2gbaBtoG2gbaBtoG2gbaBtoG2gbaBtoG2gbaBtoG2gbaBtoG2gbaBtoG2gbaBtoG2gY1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1BzUHNQc1B2EO2gbaBtoG2gbaBtoG2gbaBtoG2gbaBtoG2gbaBtoG2gbaBtoG2gbaBtoG2gbaBtoG2gbaBtoG2gbaBtoG2gbaBtoG2gbaBtoG2gbaBtoG2gbaBtoG2gbaBtoG2gZJDtoG2gbaBtoG2gbaBtoG2gbaBtoG2gbaBtoG2gbaBtoG2gbaBtoG2gbaBtoG2gbaBtoG2gbaBtoG2gbaBtoG2gbaBtoG2gbaBtoG2gbaBtoG2gbaBtoG2gbaBtoG2gbaBtoG2gbaBtoG2gbaBtoG2gbaBtoG2gbaBtoG2gbaBkkOeA6gAKAAoAAwADAAMAAwAKAAoACgAKAAoACgAKAAgA4wADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAAwADAAMAD//wQABAAEAAQABAAEAAQABAAEAA0AAwABAAEAAgAEAAQABAAEAAQABAAEAAQABAAEAAQABAAEAAQABAAEAAQABAAKABMAFwAeABsAGgAeABcAFgASAB4AGwAYAA8AGAAcAEsASwBLAEsASwBLAEsASwBLAEsAGAAYAB4AHgAeABMAHgBQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAFgAbABIAHgAeAB4AUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQABYADQARAB4ABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACsAKwArACsAKwArACsAKwArACsAKwArACsAKwArACsAKwArACsAKwArACsAKwArACsAKwArACsAKwArACsAKwArACsAKwArACsAKwArACsAKwArACsAKwArACsAKwArACsAKwArACsAKwArACsAKwArACsAKwArACsAKwArACsABAAEAAQABAAEAAUABAAEAAQABAAEAAQABAAEAAQABAAEAAQABAAEAAQABAAEAAQABAAEAAQABAAEAAQABAAEAAkAFgAaABsAGwAbAB4AHQAdAB4ATwAXAB4ADQAeAB4AGgAbAE8ATwAOAFAAHQAdAB0ATwBPABcATwBPAE8AFgBQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAHQAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB0AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgBQAB4AHgAeAB4AUABQAFAAUAAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgBQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUAAeAB4AHgAeAFAATwBAAE8ATwBPAEAATwBQAFAATwBQAB4AHgAeAB4AHgAeAB0AHQAdAB0AHgAdAB4ADgBQAFAAUABQAFAAHgAeAB4AHgAeAB4AHgBQAB4AUAAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4ABAAEAAQABAAEAAQABAAEAAQABAAEAAQABAAEAAQABAAEAAQABAAEAAQABAAEAAQABAAEAAQABAAEAAQABAAEAAQABAAEAAQABAAEAAQABAAEAAQABAAEAAQABAAEAAQABAAEAAQABAAEAAQABAAEAAQABAAEAAQABAAEAAQABAAEAAQABAAJAAQABAAEAAQABAAEAAQABAAEAAQABAAEAAkACQAJAAkACQAJAAkABAAEAAQABAAEAAQABAAEAAQABAAEAAQABAAeAB4AHgAeAFAAHgAeAB4AKwArAFAAUABQAFAAGABQACsAKwArACsAHgAeAFAAHgBQAFAAUAArAFAAKwAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AKwAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4ABAAEAAQABAAEAAQABAAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgArAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUAArACsAUAAeAB4AHgAeAB4AHgArAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAKwAYAA0AKwArAB4AHgAbACsABAAEAAQABAAEAAQABAAEAAQABAAEAAQABAAEAAQABAAEAAQABAAEAAQABAAEAAQABAAEAAQABAAEAAQABAAEAAQABAAEAAQABAAEAAQABAAEAAQABAAEAAQADQAEAB4ABAAEAB4ABAAEABMABAArACsAKwArACsAKwArACsAVgBWAFYAVgBWAFYAVgBWAFYAVgBWAFYAVgBWAFYAVgBWAFYAVgBWAFYAVgBWAFYAVgBWAFYAKwArACsAKwArAFYAVgBWAB4AHgArACsAKwArACsAKwArACsAKwArACsAHgAeAB4AHgAeAB4AHgAeAB4AGgAaABoAGAAYAB4AHgAEAAQABAAEAAQABAAEAAQABAAEAAQAEwAEACsAEwATAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUAAEAAQABAAEAAQABAAEAAQABAAEAAQABAAEAAQABAAEAAQABAAEAAQABABLAEsASwBLAEsASwBLAEsASwBLABoAGQAZAB4AUABQAAQAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQABMAUAAEAAQABAAEAAQABAAEAB4AHgAEAAQABAAEAAQABABQAFAABAAEAB4ABAAEAAQABABQAFAASwBLAEsASwBLAEsASwBLAEsASwBQAFAAUAAeAB4AUAAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AKwAeAFAABABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUAAEAAQABAAEAAQABAAEAAQABAAEAAQABAAEAAQABAAEAAQABAAEACsAKwBQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAABAAEAAQABAAEAAQABAAEAAQABAAEAFAAKwArACsAKwArACsAKwArACsAKwArACsAKwArAEsASwBLAEsASwBLAEsASwBLAEsAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAABAAEAAQABAAEAAQABAAEAAQAUABQAB4AHgAYABMAUAArACsAKwArACsAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUAAEAAQABAAEAFAABAAEAAQABAAEAFAABAAEAAQAUAAEAAQABAAEAAQAKwArAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeACsAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUAAEAAQABAArACsAHgArAFAAUABQAFAAUABQAFAAUABQAFAAUAArACsAKwArACsAKwArACsAKwArACsAKwArACsAKwArACsAKwArACsAKwBQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUAArAFAAUABQAFAAUABQAFAAUAArACsAKwArACsAKwArACsAKwArACsAKwArACsAKwArACsAKwArACsAKwArAAQABAAEAAQABAAEAAQABAAEAAQABAAEAAQABAAeAAQABAAEAAQABAAEAAQABAAEAAQABAAEAAQABAAEAAQABAAEAAQABAAEAAQABAAEAAQABAAEAAQABABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUAAEAAQABABQAAQABAAEAAQABAAEAAQABAAEAAQABAAEAAQABAAEAAQABAAEAFAABAAEAAQABAAEAAQABABQAFAAUABQAFAAUABQAFAAUABQAAQABAANAA0ASwBLAEsASwBLAEsASwBLAEsASwAeAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAABAAEAAQAKwBQAFAAUABQAFAAUABQAFAAKwArAFAAUAArACsAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQACsAUABQAFAAUABQAFAAUAArAFAAKwArACsAUABQAFAAUAArACsABABQAAQABAAEAAQABAAEAAQAKwArAAQABAArACsABAAEAAQAUAArACsAKwArACsAKwArACsABAArACsAKwArAFAAUAArAFAAUABQAAQABAArACsASwBLAEsASwBLAEsASwBLAEsASwBQAFAAGgAaAFAAUABQAFAAUABMAB4AGwBQAB4AKwArACsABAAEAAQAKwBQAFAAUABQAFAAUAArACsAKwArAFAAUAArACsAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQACsAUABQAFAAUABQAFAAUAArAFAAUAArAFAAUAArAFAAUAArACsABAArAAQABAAEAAQABAArACsAKwArAAQABAArACsABAAEAAQAKwArACsABAArACsAKwArACsAKwArAFAAUABQAFAAKwBQACsAKwArACsAKwArACsASwBLAEsASwBLAEsASwBLAEsASwAEAAQAUABQAFAABAArACsAKwArACsAKwArACsAKwArACsABAAEAAQAKwBQAFAAUABQAFAAUABQAFAAUAArAFAAUABQACsAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQACsAUABQAFAAUABQAFAAUAArAFAAUAArAFAAUABQAFAAUAArACsABABQAAQABAAEAAQABAAEAAQABAArAAQABAAEACsABAAEAAQAKwArAFAAKwArACsAKwArACsAKwArACsAKwArACsAKwArACsAUABQAAQABAArACsASwBLAEsASwBLAEsASwBLAEsASwAeABsAKwArACsAKwArACsAKwBQAAQABAAEAAQABAAEACsABAAEAAQAKwBQAFAAUABQAFAAUABQAFAAKwArAFAAUAArACsAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUAAEAAQABAAEAAQAKwArAAQABAArACsABAAEAAQAKwArACsAKwArACsAKwArAAQABAArACsAKwArAFAAUAArAFAAUABQAAQABAArACsASwBLAEsASwBLAEsASwBLAEsASwAeAFAAUABQAFAAUABQAFAAKwArACsAKwArACsAKwArACsAKwAEAFAAKwBQAFAAUABQAFAAUAArACsAKwBQAFAAUAArAFAAUABQAFAAKwArACsAUABQACsAUAArAFAAUAArACsAKwBQAFAAKwArACsAUABQAFAAKwArACsAUABQAFAAUABQAFAAUABQAFAAUABQAFAAKwArACsAKwAEAAQABAAEAAQAKwArACsABAAEAAQAKwAEAAQABAAEACsAKwBQACsAKwArACsAKwArAAQAKwArACsAKwArACsAKwArACsAKwBLAEsASwBLAEsASwBLAEsASwBLAFAAUABQAB4AHgAeAB4AHgAeABsAHgArACsAKwArACsABAAEAAQABAArAFAAUABQAFAAUABQAFAAUAArAFAAUABQACsAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAKwBQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQACsAKwArAFAABAAEAAQABAAEAAQABAArAAQABAAEACsABAAEAAQABAArACsAKwArACsAKwArAAQABAArAFAAUABQACsAKwArACsAKwBQAFAABAAEACsAKwBLAEsASwBLAEsASwBLAEsASwBLACsAKwArACsAKwArACsAKwBQAFAAUABQAFAAUABQAB4AUAAEAAQABAArAFAAUABQAFAAUABQAFAAUAArAFAAUABQACsAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAKwBQAFAAUABQAFAAUABQAFAAUABQACsAUABQAFAAUABQACsAKwAEAFAABAAEAAQABAAEAAQABAArAAQABAAEACsABAAEAAQABAArACsAKwArACsAKwArAAQABAArACsAKwArACsAKwArAFAAKwBQAFAABAAEACsAKwBLAEsASwBLAEsASwBLAEsASwBLACsAUABQACsAKwArACsAKwArACsAKwArACsAKwArACsAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAABAAEAFAABAAEAAQABAAEAAQABAArAAQABAAEACsABAAEAAQABABQAB4AKwArACsAKwBQAFAAUAAEAFAAUABQAFAAUABQAFAAUABQAFAABAAEACsAKwBLAEsASwBLAEsASwBLAEsASwBLAFAAUABQAFAAUABQAFAAUABQABoAUABQAFAAUABQAFAAKwArAAQABAArAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQACsAKwArAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUAArAFAAUABQAFAAUABQAFAAUABQACsAUAArACsAUABQAFAAUABQAFAAUAArACsAKwAEACsAKwArACsABAAEAAQABAAEAAQAKwAEACsABAAEAAQABAAEAAQABAAEACsAKwArACsAKwArAEsASwBLAEsASwBLAEsASwBLAEsAKwArAAQABAAeACsAKwArACsAKwArACsAKwArACsAKwArAFwAXABcAFwAXABcAFwAXABcAFwAXABcAFwAXABcAFwAXABcAFwAXABcAFwAXABcAFwAXABcAFwAXABcAFwAXAAqAFwAXAAqACoAKgAqACoAKgAqACsAKwArACsAGwBcAFwAXABcAFwAXABcACoAKgAqACoAKgAqACoAKgAeAEsASwBLAEsASwBLAEsASwBLAEsADQANACsAKwArACsAKwBcAFwAKwBcACsAKwBcAFwAKwBcACsAKwBcACsAKwArACsAKwArAFwAXABcAFwAKwBcAFwAXABcAFwAXABcACsAXABcAFwAKwBcACsAXAArACsAXABcACsAXABcAFwAXAAqAFwAXAAqACoAKgAqACoAKgArACoAKgBcACsAKwBcAFwAXABcAFwAKwBcACsAKgAqACoAKgAqACoAKwArAEsASwBLAEsASwBLAEsASwBLAEsAKwArAFwAXABcAFwAUAAOAA4ADgAOAB4ADgAOAAkADgAOAA0ACQATABMAEwATABMACQAeABMAHgAeAB4ABAAEAB4AHgAeAB4AHgAeAEsASwBLAEsASwBLAEsASwBLAEsAUABQAFAAUABQAFAAUABQAFAAUAANAAQAHgAEAB4ABAAWABEAFgARAAQABABQAFAAUABQAFAAUABQAFAAKwBQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUAArACsAKwArAAQABAAEAAQABAAEAAQABAAEAAQABAAEAAQABAANAAQABAAEAAQABAANAAQABABQAFAAUABQAFAABAAEAAQABAAEAAQABAAEAAQABAAEACsABAAEAAQABAAEAAQABAAEAAQABAAEAAQABAAEAAQABAAEAAQABAAEAAQABAAEAAQABAAEAAQABAAEAAQABAAEACsADQANAB4AHgAeAB4AHgAeAAQAHgAeAB4AHgAeAB4AKwAeAB4ADgAOAA0ADgAeAB4AHgAeAB4ACQAJACsAKwArACsAKwBcAFwAXABcAFwAXABcAFwAXABcAFwAXABcAFwAXABcAFwAXABcAFwAXABcAFwAXABcAFwAXABcAFwAXABcAFwAXABcAFwAKgAqACoAKgAqACoAKgAqACoAKgAqACoAKgAqACoAKgAqACoAKgAqAFwASwBLAEsASwBLAEsASwBLAEsASwANAA0AHgAeAB4AHgBcAFwAXABcAFwAXAAqACoAKgAqAFwAXABcAFwAKgAqACoAXAAqACoAKgBcAFwAKgAqACoAKgAqACoAKgBcAFwAXAAqACoAKgAqAFwAXABcAFwAXABcAFwAXABcAFwAXABcAFwAKgAqACoAKgAqACoAKgAqACoAKgAqACoAXAAqAEsASwBLAEsASwBLAEsASwBLAEsAKgAqACoAKgAqACoAUABQAFAAUABQAFAAKwBQACsAKwArACsAKwBQACsAKwBQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUAAeAFAAUABQAFAAWABYAFgAWABYAFgAWABYAFgAWABYAFgAWABYAFgAWABYAFgAWABYAFgAWABYAFgAWABYAFgAWABYAFgAWABYAFkAWQBZAFkAWQBZAFkAWQBZAFkAWQBZAFkAWQBZAFkAWQBZAFkAWQBZAFkAWQBZAFkAWQBZAFkAWQBZAFkAWQBaAFoAWgBaAFoAWgBaAFoAWgBaAFoAWgBaAFoAWgBaAFoAWgBaAFoAWgBaAFoAWgBaAFoAWgBaAFoAWgBaAFoAUABQAFAAUABQAFAAUABQAFAAKwBQAFAAUABQACsAKwBQAFAAUABQAFAAUABQACsAUAArAFAAUABQAFAAKwArAFAAUABQAFAAUABQAFAAUABQACsAUABQAFAAUAArACsAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQACsAUABQAFAAUAArACsAUABQAFAAUABQAFAAUAArAFAAKwBQAFAAUABQACsAKwBQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUAArAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUAArAFAAUABQAFAAKwArAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQACsAKwAEAAQABAAeAA0AHgAeAB4AHgAeAB4AHgBQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAKwArACsAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUAAeAB4AHgAeAB4AHgAeAB4AHgAeACsAKwArACsAKwArAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAKwArAFAAUABQAFAAUABQACsAKwANAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUAAeAB4AUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAA0AUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQABYAEQArACsAKwBQAFAAUABQAFAAUABQAFAAUABQAFAADQANAA0AUABQAFAAUABQAFAAUABQAFAAUABQACsAKwArACsAKwArACsAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUAArAFAAUABQAFAABAAEAAQAKwArACsAKwArACsAKwArACsAKwArAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAAQABAAEAA0ADQArACsAKwArACsAKwArACsAKwBQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUAAEAAQAKwArACsAKwArACsAKwArACsAKwArACsAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUAArAFAAUABQACsABAAEACsAKwArACsAKwArACsAKwArACsAKwArAFwAXABcAFwAXABcAFwAXABcAFwAXABcAFwAXABcAFwAXABcAFwAXAAqACoAKgAqACoAKgAqACoAKgAqACoAKgAqACoAKgAqACoAKgAqACoADQANABUAXAANAB4ADQAbAFwAKgArACsASwBLAEsASwBLAEsASwBLAEsASwArACsAKwArACsAKwBQAFAAUABQAFAAUABQAFAAUABQACsAKwArACsAKwArAB4AHgATABMADQANAA4AHgATABMAHgAEAAQABAAJACsASwBLAEsASwBLAEsASwBLAEsASwArACsAKwArACsAKwBQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUAArACsAKwArACsAKwArACsAUABQAFAAUABQAAQABABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAABABQACsAKwArACsAKwBQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQACsAKwArACsAKwArACsAKwArACsAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUAArAAQABAAEAAQABAAEAAQABAAEAAQABAAEACsAKwArACsABAAEAAQABAAEAAQABAAEAAQABAAEAAQAKwArACsAKwAeACsAKwArABMAEwBLAEsASwBLAEsASwBLAEsASwBLAFwAXABcAFwAXABcAFwAXABcAFwAXABcAFwAXABcAFwAXABcACsAKwBcAFwAXABcAFwAKwArACsAKwArACsAKwArACsAKwArAFwAXABcAFwAXABcAFwAXABcAFwAXABcACsAKwArACsAXABcAFwAXABcAFwAXABcAFwAXABcAFwAXABcAFwAXABcAFwAKwArACsAKwArACsASwBLAEsASwBLAEsASwBLAEsASwBcACsAKwArACoAKgBQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAABAAEAAQABAAEACsAKwAeAB4AXABcAFwAXABcAFwAXABcAFwAXABcAFwAXABcAFwAXABcAFwAXABcAFwAKgAqACoAKgAqACoAKgAqACoAKgArACoAKgAqACoAKgAqACoAKgAqACoAKgAqACoAKgAqACoAKgAqACoAKgAqACoAKgAqACoAKgAqACoAKgArACsABABLAEsASwBLAEsASwBLAEsASwBLACsAKwArACsAKwArAEsASwBLAEsASwBLAEsASwBLAEsAKwArACsAKwArACsAKgAqACoAKgAqACoAKgBcACoAKgAqACoAKgAqACsAKwAEAAQABAAEAAQABAAEAAQABAAEAAQABAAEAAQABAArAAQABAAEAAQABABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUAAEAAQABAAEAAQAUABQAFAAUABQAFAAUAArACsAKwArAEsASwBLAEsASwBLAEsASwBLAEsADQANAB4ADQANAA0ADQAeAB4AHgAeAB4AHgAeAB4AHgAeAAQABAAEAAQABAAEAAQABAAEAB4AHgAeAB4AHgAeAB4AHgAeACsAKwArAAQABAAEAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAAQABAAEAAQABAAEAAQABAAEAAQABAAEAAQAUABQAEsASwBLAEsASwBLAEsASwBLAEsAUABQAFAAUABQAFAAUABQAAQABAAEAAQABAAEAAQABAAEAAQABAAEAAQABAArACsAKwArACsAKwArACsAHgAeAB4AHgBQAFAAUABQAAQABAAEAAQABAAEAAQABAAEAAQABAAEAAQABAAEAAQABAAEAAQABAArACsAKwANAA0ADQANAA0ASwBLAEsASwBLAEsASwBLAEsASwArACsAKwBQAFAAUABLAEsASwBLAEsASwBLAEsASwBLAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUAANAA0AUABQAFAAUABQAFAAUABQAFAAKwArACsAKwArACsAKwArACsAKwArACsAKwArACsAKwArACsAKwArACsAKwArAB4AHgAeAB4AHgAeAB4AHgArACsAKwArACsAKwArACsABAAEAAQAHgAEAAQABAAEAAQABAAEAAQABAAEAAQABAAEAFAAUABQAFAABABQAFAAUABQAAQABAAEAFAAUAAEAAQABAArACsAKwArACsAKwAEAAQABAAEAAQABAAEAAQABAAEAAQABAAEAAQABAAEAAQABAAEAAQABAAEAAQABAAEAAQAKwAEAAQABAAEAAQAHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgArACsAUABQAFAAUABQAFAAKwArAFAAUABQAFAAUABQAFAAUAArAFAAKwBQACsAUAArAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AKwArAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeACsAHgAeAB4AHgAeAB4AHgAeAFAAHgAeAB4AUABQAFAAKwAeAB4AHgAeAB4AHgAeAB4AHgAeAFAAUABQAFAAKwArAB4AHgAeAB4AHgAeACsAHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgArACsAUABQAFAAKwAeAB4AHgAeAB4AHgAeAA4AHgArAA0ADQANAA0ADQANAA0ACQANAA0ADQAIAAQACwAEAAQADQAJAA0ADQAMAB0AHQAeABcAFwAWABcAFwAXABYAFwAdAB0AHgAeABQAFAAUAA0AAQABAAQABAAEAAQABAAJABoAGgAaABoAGgAaABoAGgAeABcAFwAdABUAFQAeAB4AHgAeAB4AHgAYABYAEQAVABUAFQAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgANAB4ADQANAA0ADQAeAA0ADQANAAcAHgAeAB4AHgArAAQABAAEAAQABAAEAAQABAAEAAQAUABQACsAKwBPAFAAUABQAFAAUAAeAB4AHgAWABEATwBQAE8ATwBPAE8AUABQAFAAUABQAB4AHgAeABYAEQArAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAKwArACsAGwAbABsAGwAbABsAGwAaABsAGwAbABsAGwAbABsAGwAbABsAGwAbABsAGwAaABsAGwAbABsAGgAbABsAGgAbABsAGwAbABsAGwAbABsAGwAbABsAGwAbABsAGwAbABsABAAEAAQABAAEAAQABAAEAAQABAAEAAQABAAEAAQABAAEACsAKwArACsAKwArACsAKwArACsAKwArACsAKwArAB4AHgBQABoAHgAdAB4AUAAeABoAHgAeAB4AHgAeAB4AHgAeAB4ATwAeAFAAGwAeAB4AUABQAFAAUABQAB4AHgAeAB0AHQAeAFAAHgBQAB4AUAAeAFAATwBQAFAAHgAeAB4AHgAeAB4AHgBQAFAAUABQAFAAHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgBQAB4AUABQAFAAUABPAE8AUABQAFAAUABQAE8AUABQAE8AUABPAE8ATwBPAE8ATwBPAE8ATwBPAE8ATwBQAFAAUABQAE8ATwBPAE8ATwBPAE8ATwBPAE8AUABQAFAAUABQAFAAUABQAFAAHgAeAFAAUABQAFAATwAeAB4AKwArACsAKwAdAB0AHQAdAB0AHQAdAB0AHQAdAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAdAB4AHQAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHQAeAB0AHQAeAB4AHgAdAB0AHgAeAB0AHgAeAB4AHQAeAB0AGwAbAB4AHQAeAB4AHgAeAB0AHgAeAB0AHQAdAB0AHgAeAB0AHgAdAB4AHQAdAB0AHQAdAB0AHgAdAB4AHgAeAB4AHgAdAB0AHQAdAB4AHgAeAB4AHQAdAB4AHgAeAB4AHgAeAB4AHgAeAB4AHQAeAB4AHgAdAB4AHgAeAB4AHgAdAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHQAdAB4AHgAdAB0AHQAdAB4AHgAdAB0AHgAeAB0AHQAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAdAB0AHgAeAB0AHQAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB0AHgAeAB4AHQAeAB4AHgAeAB4AHgAeAB0AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAdAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeABQAHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAWABEAFgARAB4AHgAeAB4AHgAeAB0AHgAeAB4AHgAeAB4AHgAlACUAHgAeAB4AHgAeAB4AHgAeAB4AFgARAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeACUAJQAlACUAHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AKwArACsAKwArACsAKwArACsAKwArACsAKwArACsAKwArACsAKwArACsAKwArACsAKwBPAE8ATwBPAE8ATwBPAE8ATwBPAE8ATwBPAE8ATwBPAE8ATwBPAE8ATwBPAE8ATwBPAE8ATwBPAE8ATwBPAE8AHQAdAB0AHQAdAB0AHQAdAB0AHQAdAB0AHQAdAB0AHQAdAB0AHQAdAB0AHQAdAB0AHQAdAB0AHQAdAB0AHQAdAB0AHQBPAE8ATwBPAE8ATwBPAE8ATwBPAE8ATwBPAE8ATwBPAE8ATwBPAE8ATwBQAB0AHQAdAB0AHQAdAB0AHQAdAB0AHQAdAB4AHgAeAB4AHQAdAB0AHQAdAB0AHQAdAB0AHQAdAB0AHQAdAB0AHQAdAB0AHQAdAB0AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB0AHQAdAB0AHQAdAB0AHQAdAB0AHQAdAB0AHQAdAB0AHgAeAB0AHQAdAB0AHgAeAB4AHgAeAB4AHgAeAB4AHgAdAB0AHgAdAB0AHQAdAB0AHQAdAB4AHgAeAB4AHgAeAB4AHgAdAB0AHgAeAB0AHQAeAB4AHgAeAB0AHQAeAB4AHgAeAB0AHQAdAB4AHgAdAB4AHgAdAB0AHQAdAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHQAdAB0AHQAeAB4AHgAeAB4AHgAeAB4AHgAdAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AJQAlACUAJQAeAB0AHQAeAB4AHQAeAB4AHgAeAB0AHQAeAB4AHgAeACUAJQAdAB0AJQAeACUAJQAlACAAJQAlAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AJQAlACUAHgAeAB4AHgAdAB4AHQAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHQAdAB4AHQAdAB0AHgAdACUAHQAdAB4AHQAdAB4AHQAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAlAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB0AHQAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AJQAlACUAJQAlACUAJQAlACUAJQAlACUAHQAdAB0AHQAlAB4AJQAlACUAHQAlACUAHQAdAB0AJQAlAB0AHQAlAB0AHQAlACUAJQAeAB0AHgAeAB4AHgAdAB0AJQAdAB0AHQAdAB0AHQAlACUAJQAlACUAHQAlACUAIAAlAB0AHQAlACUAJQAlACUAJQAlACUAHgAeAB4AJQAlACAAIAAgACAAHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAdAB4AHgAeABcAFwAXABcAFwAXAB4AEwATACUAHgAeAB4AFgARABYAEQAWABEAFgARABYAEQAWABEAFgARAE8ATwBPAE8ATwBPAE8ATwBPAE8ATwBPAE8ATwBPAE8ATwBPAE8ATwBPAE8AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAWABEAHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AFgARABYAEQAWABEAFgARABYAEQAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeABYAEQAWABEAFgARABYAEQAWABEAFgARABYAEQAWABEAFgARABYAEQAWABEAHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AFgARABYAEQAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeABYAEQAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHQAdAB0AHQAdAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AKwArAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AKwArACsAHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AKwAeAB4AHgAeAB4AHgAeAB4AHgArACsAKwArACsAKwArACsAKwArACsAKwArAB4AHgAeAB4AKwArACsAKwArACsAKwArACsAKwArACsAKwArACsAKwAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAEAAQABAAeAB4AKwArACsAKwArABMADQANAA0AUAATAA0AUABQAFAAUABQAFAAUABQACsAKwArACsAKwArACsAUAANACsAKwArACsAKwArACsAKwArACsAKwArACsAKwAEAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUAArACsAKwArACsAKwArACsAKwBQAFAAUABQAFAAUABQACsAUABQAFAAUABQAFAAUAArAFAAUABQAFAAUABQAFAAKwBQAFAAUABQAFAAUABQACsAFwAXABcAFwAXABcAFwAXABcAFwAXABcAFwAXAA0ADQANAA0ADQANAA0ADQAeAA0AFgANAB4AHgAXABcAHgAeABcAFwAWABEAFgARABYAEQAWABEADQANAA0ADQATAFAADQANAB4ADQANAB4AHgAeAB4AHgAMAAwADQANAA0AHgANAA0AFgANAA0ADQANAA0ADQANACsAKwArACsAKwArACsAKwArACsAKwArACsAKwArACsAKwArACsAKwArACsAJQAlACUAJQAlACUAJQAlACUAJQAlACUAJQAlACUAJQAlACUAJQAlACUAJQAlACUAJQAlACsAJQAlACUAJQAlACUAJQAlACUAJQAlACUAJQAlACUAJQAlACUAJQAlACUAJQAlACUAJQAlACUAJQAlACUAJQAlACUAKwArACsAKwArACsAKwArACsAKwArACsAJQAlACUAJQAlACUAJQAlACUAJQAlACUAJQAlACUAJQAlACUAJQAlACUAJQArACsAKwArACsAKwArACsAKwArACsAKwArACsAKwArACsAKwAlACUAJQAlACUAJQAlACUAJQAlACUAJQArACsAKwArAA0AEQARACUAJQBHAFcAVwAWABEAFgARABYAEQAWABEAFgARACUAJQAWABEAFgARABYAEQAWABEAFQAWABEAEQAlAFcAVwBXAFcAVwBXAFcAVwBXAAQABAAEAAQABAAEACUAVwBXAFcAVwA2ACUAJQBXAFcAVwBHAEcAJQAlACUAKwBRAFcAUQBXAFEAVwBRAFcAUQBXAFcAVwBXAFcAVwBXAFcAVwBXAFcAVwBXAFcAVwBXAFcAVwBXAFcAVwBXAFcAVwBXAFEAVwBXAFcAVwBXAFcAVwBXAFcAVwBXAFcAVwBXAFcAVwBXAFcAVwBXAFcAVwBXAFcAVwBXAFcAVwBXAFcAVwBRAFcAUQBXAFEAVwBXAFcAVwBXAFcAUQBXAFcAVwBXAFcAVwBRAFEAKwArAAQABAAVABUARwBHAFcAFQBRAFcAUQBXAFEAVwBRAFcAUQBXAFcAVwBXAFcAVwBXAFcAVwBXAFcAVwBXAFcAVwBXAFcAVwBXAFcAVwBXAFcAVwBXAFEAVwBRAFcAUQBXAFcAVwBXAFcAVwBRAFcAVwBXAFcAVwBXAFEAUQBXAFcAVwBXABUAUQBHAEcAVwArACsAKwArACsAVwBXAFcAVwBXAFcAVwBXAFcAVwBXAFcAVwBXAFcAVwBXAFcAVwBXAFcAVwBXAFcAVwBXAFcAVwBXAFcAKwArAFcAVwBXAFcAVwBXAFcAVwBXAFcAVwBXAFcAVwBXAFcAVwBXAFcAVwBXAFcAVwBXAFcAVwBXAFcAVwBXAFcAVwBXAFcAVwBXAFcAVwArACUAJQBXAFcAVwBXACUAJQAlACUAJQAlACUAJQAlACUAVwBXAFcAVwBXAFcAVwBXAFcAVwBXAFcAVwBXAFcAVwBXAFcAVwBXAFcAVwBXAFcAVwBXAFcAKwArACsAKwArACUAJQAlACUAKwArACsAKwArACsAKwArACsAKwArACsAUQBRAFEAUQBRAFEAUQBRAFEAUQBRAFEAUQBRAFEAUQAlACUAJQAlACUAJQAlACUAJQAlACUAJQAlACUAJQAlACUAJQAlACUAJQAlACUAJQAlACUAJQAlACUAJQAlACsAVwBXAFcAVwBXAFcAVwBXAFcAVwAlACUAJQAlACUAJQAlACUAJQAlACUAJQAlACUAJQAlACUAJQAlACUAJQAlAE8ATwBPAE8ATwBPAE8ATwAlAFcAVwBXAFcAVwBXAFcAVwBXAFcAVwBXAFcAVwBXACUAJQAlACUAJQAlACUAJQAlACUAJQAlACUAJQAlACUAJQBXAFcAVwBXAFcAVwBXAFcAVwBXAFcAVwBXAFcAVwBXAFcAVwBXAFcAVwBXAFcAVwBXACUAJQAlACUAJQAlACUAJQAlACUAVwBXAFcAVwBXAFcAVwBXAFcAVwBXACUAJQAlACUAJQAlACUAJQAlACUAJQAlACUAJQAlACUAJQAlACUAJQAlAFcAVwBXAFcAVwBXAFcAVwBXAFcAVwBXAFcAVwBXAFcAVwBXAFcAVwBXAEcAVwBXAFcAVwBXAFcAVwBXAFcAVwBXAFcAVwBXAFcAKwArACsAJQAlACUAJQAlACUAJQAlACUAJQAlACUAJQAlACUAJQAlACUAJQArACsAKwArACsAKwArACsAKwBQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAADQATAA0AUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABLAEsASwBLAEsASwBLAEsASwBLAFAAUAArACsAKwArACsAKwArACsAKwArACsAKwArACsAKwArACsAKwArACsAHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAFAABAAEAAQABAAeAAQABAAEAAQABAAEAAQABAAEAAQAHgBQAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AUABQAAQABABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAAQABAAeAA0ADQANAA0ADQArACsAKwArACsAKwArACsAHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAFAAUABQAFAAUABQAFAAUABQAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AUAAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgBQAB4AHgAeAB4AHgAeAFAAHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgArAB4AHgAeAB4AHgAeAB4AHgArACsAKwArACsAKwArACsAKwArACsAKwArACsAKwArACsAKwArACsAKwArACsAUABQAFAAUABQAFAAUABQAFAAUABQAAQAUABQAFAABABQAFAAUABQAAQAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAAQABAAEAAQABAAeAB4AHgAeACsAKwArACsAUABQAFAAUABQAFAAHgAeABoAHgArACsAKwArACsAKwBQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAADgAOABMAEwArACsAKwArACsAKwArACsABAAEAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAAQABAAEAAQABAAEACsAKwArACsAKwArACsAKwANAA0ASwBLAEsASwBLAEsASwBLAEsASwArACsAKwArACsAKwAEAAQABAAEAAQABAAEAAQABAAEAAQABAAEAAQABAAEAAQABABQAFAAUABQAFAAUAAeAB4AHgBQAA4AUAArACsAUABQAFAAUABQAFAABAAEAAQABAAEAAQABAAEAA0ADQBQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAAQABAAEAAQABAAEAAQABAAEAAQABAAEAAQAKwArACsAKwArACsAKwArACsAKwArAB4AWABYAFgAWABYAFgAWABYAFgAWABYAFgAWABYAFgAWABYAFgAWABYAFgAWABYAFgAWABYAFgAWABYACsAKwArAAQAHgAeAB4AHgAeAB4ADQANAA0AHgAeAB4AHgArAFAASwBLAEsASwBLAEsASwBLAEsASwArACsAKwArAB4AHgBcAFwAXABcAFwAKgBcAFwAXABcAFwAXABcAFwAXABcAEsASwBLAEsASwBLAEsASwBLAEsAXABcAFwAXABcACsAUABQAFAAUABQAFAAUABQAFAABAAEAAQABAAEAAQABAAEAAQABAAEAAQABAAEACsAKwArACsAKwArACsAKwArAFAAUABQAAQAUABQAFAAUABQAFAAUABQAAQABAArACsASwBLAEsASwBLAEsASwBLAEsASwArACsAHgANAA0ADQBcAFwAXABcAFwAXABcAFwAXABcAFwAXABcAFwAXABcAFwAXABcAFwAXABcAFwAKgAqACoAXAAqACoAKgBcAFwAXABcAFwAXABcAFwAXABcAFwAXABcAFwAXABcAFwAXAAqAFwAKgAqACoAXABcACoAKgBcAFwAXABcAFwAKgAqAFwAKgBcACsAKwArACsAKwArACsAKwArACsAKwArACsAKwArACsAKwArACsAKwArACsAKwArAFwAXABcACoAKgBQAFAAUABQAFAAUABQAFAAUABQAFAABAAEAAQABAAEAA0ADQBQAFAAUAAEAAQAKwArACsAKwArACsAKwArACsAKwBQAFAAUABQAFAAUAArACsAUABQAFAAUABQAFAAKwArAFAAUABQAFAAUABQACsAKwArACsAKwArACsAKwArAFAAUABQAFAAUABQAFAAKwBQAFAAUABQAFAAUABQACsAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUAAEAAQABAAEAAQABAAEAAQADQAEAAQAKwArAEsASwBLAEsASwBLAEsASwBLAEsAKwArACsAKwArACsAVABVAFUAVQBVAFUAVQBVAFUAVQBVAFUAVQBVAFUAVQBVAFUAVQBVAFUAVQBVAFUAVQBVAFUAVQBUAFUAVQBVAFUAVQBVAFUAVQBVAFUAVQBVAFUAVQBVAFUAVQBVAFUAVQBVAFUAVQBVAFUAVQBVACsAKwArACsAKwArACsAKwArACsAKwArAFkAWQBZAFkAWQBZAFkAWQBZAFkAWQBZAFkAWQBZAFkAWQBZAFkAKwArACsAKwBaAFoAWgBaAFoAWgBaAFoAWgBaAFoAWgBaAFoAWgBaAFoAWgBaAFoAWgBaAFoAWgBaAFoAWgBaAFoAKwArACsAKwAGAAYABgAGAAYABgAGAAYABgAGAAYABgAGAAYABgAGAAYABgAGAAYABgAGAAYABgAGAAYABgAGAAYABgAGAAYAVwBXAFcAVwBXAFcAVwBXAFcAVwBXAFcAVwBXACUAJQBXAFcAVwBXAFcAVwBXAFcAVwBXAFcAVwBXAFcAVwBXAFcAVwBXAFcAVwBXAFcAVwBXAFcAJQAlACUAJQAlACUAUABQAFAAUABQAFAAUAArACsAKwArACsAKwArACsAKwArACsAKwBQAFAAUABQAFAAKwArACsAKwArAFYABABWAFYAVgBWAFYAVgBWAFYAVgBWAB4AVgBWAFYAVgBWAFYAVgBWAFYAVgBWAFYAVgArAFYAVgBWAFYAVgArAFYAKwBWAFYAKwBWAFYAKwBWAFYAVgBWAFYAVgBWAFYAVgBWAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AKwArACsAKwArACsAKwArACsAKwArACsAKwArACsAKwArAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAEQAWAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAKwArAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUAArACsAKwArACsAKwArACsAKwArACsAKwArACsAKwArACsAKwArACsAKwArACsAKwBQAFAAUABQAFAAUABQAFAAUABQAFAAUAAaAB4AKwArAAQABAAEAAQABAAEAAQABAAEAAQABAAEAAQABAAEAAQAGAARABEAGAAYABMAEwAWABEAFAArACsAKwArACsAKwAEAAQABAAEAAQABAAEAAQABAAEAAQABAAEAAQABAAEACUAJQAlACUAJQAWABEAFgARABYAEQAWABEAFgARABYAEQAlACUAFgARACUAJQAlACUAJQAlACUAEQAlABEAKwAVABUAEwATACUAFgARABYAEQAWABEAJQAlACUAJQAlACUAJQAlACsAJQAbABoAJQArACsAKwArAFAAUABQAFAAUAArAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAKwArAAcAKwATACUAJQAbABoAJQAlABYAEQAlACUAEQAlABEAJQBXAFcAVwBXAFcAVwBXAFcAVwBXABUAFQAlACUAJQATACUAVwBXAFcAVwBXAFcAVwBXAFcAVwBXAFcAVwBXAFcAVwBXAFcAVwBXAFcAVwBXAFcAVwBXABYAJQARACUAJQAlAFcAVwBXAFcAVwBXAFcAVwBXAFcAVwBXAFcAVwBXAFcAVwBXAFcAVwBXAFcAVwBXAFcAVwAWACUAEQAlABYAEQARABYAEQARABUAVwBRAFEAUQBRAFEAUQBRAFEAUQBRAFcAVwBXAFcAVwBXAFcAVwBXAFcAVwBXAFcAVwBXAFcAVwBXAFcAVwBXAFcAVwBXAFcAVwBXAFcAVwBXAFcAVwBXAEcARwArACsAVwBXAFcAVwBXAFcAKwArAFcAVwBXAFcAVwBXACsAKwBXAFcAVwBXAFcAVwArACsAVwBXAFcAKwArACsAGgAbACUAJQAlABsAGwArAB4AHgAeAB4AHgAeAB4AKwArACsAKwArACsAKwArACsAKwAEAAQABAAQAB0AKwArAFAAUABQAFAAUABQAFAAUABQAFAAUABQACsAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUAArAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAKwBQAFAAKwBQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUAArACsAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQACsAKwBQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUAArACsAKwArACsADQANAA0AKwArACsAKwBQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQACsAKwArAB4AHgAeAB4AHgAeAB4AHgAeAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgBQAFAAHgAeAB4AKwAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgArACsAKwArAB4AKwArACsAKwArACsAKwArACsAKwArACsAKwArACsAKwArACsAKwArACsAKwArACsAKwArACsAKwArACsAKwAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4ABAArACsAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQACsAKwArACsAKwArACsAKwArACsAKwArACsAKwArAAQAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAKwArACsAKwArACsAKwArACsAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUAArACsAKwArACsAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUAAEAAQABAAEAAQAKwArACsAKwArAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQACsADQBQAFAAUABQACsAKwArACsAUABQAFAAUABQAFAAUABQAA0AUABQAFAAUABQACsAKwArACsAKwArACsAKwArACsAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAKwArAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUAArACsAKwArAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAKwArACsAKwArACsAKwArAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAKwArACsAKwArACsAKwArACsAKwArAB4AKwArACsAKwArACsAKwArACsAKwArACsAKwArACsAKwBQAFAAUABQAFAAUAArACsAUAArAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQACsAUABQACsAKwArAFAAKwArAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUAArAA0AUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAB4AHgBQAFAAUABQAFAAUABQACsAKwArACsAKwArACsAUABQAFAAUABQAFAAUABQAFAAKwArACsAKwArACsAKwArACsAKwArACsAKwArACsAKwBQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQACsAUABQACsAKwArACsAKwBQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAKwArACsADQBQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAKwArACsAKwArAB4AUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAKwArACsAKwBQAFAAUABQAFAABAAEAAQAKwAEAAQAKwArACsAKwArAAQABAAEAAQAUABQAFAAUAArAFAAUABQACsAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQACsAKwArACsABAAEAAQAKwArACsAKwAEAFAAUABQAFAAUABQAFAAUAArACsAKwArACsAKwArACsADQANAA0ADQANAA0ADQANAB4AKwArACsAKwArACsAKwBQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAB4AUABQAFAAUABQAFAAUABQAB4AUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAABAAEACsAKwArACsAUABQAFAAUABQAA0ADQANAA0ADQANABQAKwArACsAKwArACsAKwArACsAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUAArACsAKwANAA0ADQANAA0ADQANAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQACsAKwArACsAKwArACsAHgAeAB4AHgArACsAKwArACsAKwArACsAKwArACsAKwBQAFAAUABQAFAAUABQACsAKwArACsAKwArACsAKwArACsAKwArACsAKwArACsAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUAArACsAKwArACsAKwArACsAKwArACsAKwArAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAKwArACsAKwArACsAKwBQAFAAUABQAFAAUAAEAAQABAAEAAQABAAEAA0ADQAeAB4AHgAeAB4AKwArACsAKwBQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAEsASwBLAEsASwBLAEsASwBLAEsAKwArACsAKwArACsAKwArACsAKwArACsAKwArACsABABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAAQABAAEAAQABAAEAAQABAAEAAQABAAeAB4AHgANAA0ADQANACsAKwArACsAKwArACsAKwArACsAKwArACsAKwBQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAKwArACsAKwArACsAKwBLAEsASwBLAEsASwBLAEsASwBLACsAKwArACsAKwArAFAAUABQAFAAUABQAFAABAAEAAQABAAEAAQABAAEAAQABAAEAAQABAAEACsASwBLAEsASwBLAEsASwBLAEsASwANAA0ADQANACsAKwArACsAKwArACsAKwArACsAKwArAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAABAAeAA4AUAArACsAKwArACsAKwArACsAKwAEAFAAUABQAFAADQANAB4ADQAeAAQABAAEAB4AKwArAEsASwBLAEsASwBLAEsASwBLAEsAUAAOAFAADQANAA0AKwBQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAKwArACsAKwArACsAKwArACsAKwArAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQACsAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUAAEAAQABAAEAAQABAAEAAQABAAEAAQABAANAA0AHgANAA0AHgAEACsAUABQAFAAUABQAFAAUAArAFAAKwBQAFAAUABQACsAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAKwBQAFAAUABQAFAAUABQAFAAUABQAA0AKwArACsAKwArACsAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUAAEAAQABAAEAAQABAAEAAQABAAEAAQAKwArACsAKwArAEsASwBLAEsASwBLAEsASwBLAEsAKwArACsAKwArACsABAAEAAQABAArAFAAUABQAFAAUABQAFAAUAArACsAUABQACsAKwBQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAAQABAAEAAQABAArACsABAAEACsAKwAEAAQABAArACsAUAArACsAKwArACsAKwAEACsAKwArACsAKwBQAFAAUABQAFAABAAEACsAKwAEAAQABAAEAAQABAAEACsAKwArAAQABAAEAAQABAArACsAKwArACsAKwArACsAKwArACsABAAEAAQABAAEAAQABABQAFAAUABQAA0ADQANAA0AHgBLAEsASwBLAEsASwBLAEsASwBLACsADQArAB4AKwArAAQABAAEAAQAUABQAB4AUAArACsAKwArACsAKwArACsASwBLAEsASwBLAEsASwBLAEsASwArACsAKwArACsAKwBQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUAAEAAQABAAEAAQABAAEACsAKwAEAAQABAAEAAQABAAEAAQABAAOAA0ADQATABMAHgAeAB4ADQANAA0ADQANAA0ADQANAA0ADQANAA0ADQANAA0AUABQAFAAUAAEAAQAKwArAAQADQANAB4AUAArACsAKwArACsAKwArACsAKwArACsASwBLAEsASwBLAEsASwBLAEsASwArACsAKwArACsAKwAOAA4ADgAOAA4ADgAOAA4ADgAOAA4ADgAOACsAKwArACsAKwArACsAKwArACsAKwArACsAKwArACsAKwArACsASwBLAEsASwBLAEsASwBLAEsASwArACsAKwArACsAKwArACsAKwArACsAKwArACsAKwArACsAKwArACsAKwArAFwAXABcAFwAXABcAFwAXABcAFwAXABcAFwAXABcAFwAXABcAFwAXABcAFwAXABcAFwAXAArACsAKwAqACoAKgAqACoAKgAqACoAKgAqACoAKgAqACoAKgArACsAKwArAEsASwBLAEsASwBLAEsASwBLAEsAXABcAA0ADQANACoASwBLAEsASwBLAEsASwBLAEsASwBQAFAAUABQAFAAUABQAFAAUAArACsAKwArACsAKwArACsAKwArACsAKwBQAFAABAAEAAQABAAEAAQABAAEAAQABABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUAAEAAQABAAEAAQABAAEAFAABAAEAAQABAAOAB4ADQANAA0ADQAOAB4ABAArACsAKwArACsAKwArACsAUAAEAAQABAAEAAQABAAEAAQABAAEAAQAUABQAFAAUAArACsAUABQAFAAUAAEAAQABAAEAAQABAAEAAQABAAEAAQABAAEAAQABAAEAA0ADQANACsADgAOAA4ADQANACsAKwArACsAKwArACsAKwArACsAKwArACsAKwArACsAKwArACsAKwArACsAKwArACsAKwArACsAKwBQAFAAUABQAFAAUABQAFAAUAArAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAABAAEAAQABAAEAAQABAAEACsABAAEAAQABAAEAAQABAAEAFAADQANAA0ADQANACsAKwArACsAKwArACsAKwArACsASwBLAEsASwBLAEsASwBLAEsASwBQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUAArACsAKwAOABMAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAKwArAAQABAAEAAQABAAEAAQABAAEAAQABAAEAAQABAArAAQABAAEAAQABAAEAAQABAAEAAQABAAEAAQABAArACsAKwArACsAKwArACsAKwBQAFAAUABQAFAAUABQACsAUABQACsAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUAAEAAQABAAEAAQABAArACsAKwAEACsABAAEACsABAAEAAQABAAEAAQABABQAAQAKwArACsAKwArACsAKwArAEsASwBLAEsASwBLAEsASwBLAEsAKwArACsAKwArACsAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQACsAKwArACsAKwArAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQACsADQANAA0ADQANACsAKwArACsAKwArACsAKwArACsAKwBQAFAAUABQACsAKwArACsAKwArACsAKwArACsAKwArACsAKwArACsAKwArACsAKwArACsAKwArACsAKwArACsAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAASABIAEgAQwBDAEMAUABQAFAAUABDAFAAUABQAEgAQwBIAEMAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAASABDAEMAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAKwArACsAKwArACsAKwArACsAKwArACsAKwArACsAKwArAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABIAEMAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUAArACsAKwArACsAKwArACsAKwArACsAKwArACsAKwArACsAKwArACsAKwArACsAKwArAEsASwBLAEsASwBLAEsASwBLAEsAKwArACsAKwANAA0AKwArACsAKwArACsAKwArACsAKwArACsAKwArACsAKwBQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAKwArAAQABAAEAAQABAANACsAKwArACsAKwArACsAKwArACsAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUAAEAAQABAAEAAQABAAEAA0ADQANAB4AHgAeAB4AHgAeAFAAUABQAFAADQAeACsAKwArACsAKwArACsAKwArACsASwBLAEsASwBLAEsASwBLAEsASwArAFAAUABQAFAAUABQAFAAKwBQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUAArACsAKwArACsAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUAArACsAKwArACsAKwArACsAKwArACsAKwArACsAKwArAFAAUABQAFAAUAArACsAKwArACsAKwArACsAKwArACsAUAAEAAQABAAEAAQABAAEAAQABAAEAAQABAAEAAQABAAEAAQABAAEAAQABAAEAAQABAAEAAQABAAEAAQABAAEAAQABAAEACsAKwArACsAKwArACsAKwArACsAKwArACsAKwArACsABAAEAAQABABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAEcARwArACsAKwArACsAKwArACsAKwArACsAKwArACsAKwArACsAKwArACsAKwArACsAKwArACsAKwArACsAKwBXAFcAVwBXAFcAVwBXAFcAVwBXAFcAVwBXACsAKwArACsAKwArACsAKwArACsAKwArACsAKwArACsAKwArACsAVwBXAFcAVwBXAFcAVwBXAFcAVwBXAFcAVwBXAFcAVwBXAFcAVwArACsAKwArACsAKwArACsAKwArACsAKwArAFcAVwBXAFcAVwBXAFcAVwBXAFcAVwBXAFcAVwBXAFcAVwBXAFcAVwBXAFcAVwBXAFcAVwBXAFcAKwArACsAKwBQAFAAUABQAFAAUABQAFAAUABQAFAAKwArACsAKwArAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAKwArACsAKwArACsAKwBQAFAAUABQAFAAUABQAFAAUABQACsAKwAeAAQABAANAAQABAAEAAQAKwArACsAKwArACsAKwArACsAKwArACsAKwArACsAKwArACsAKwArACsAKwArACsAKwArACsAKwAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeACsAKwArACsAKwArACsAKwArACsAHgAeAB4AHgAeAB4AHgArACsAHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4ABAAEAAQABAAEAB4AHgAeAAQABAAEAAQABAAEAAQABAAEAAQABAAEAAQABAAEAAQABAAEAAQABAAEAAQAHgAeAAQABAAEAAQABAAEAAQAHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAEAAQABAAEAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AKwArACsAKwArACsAKwArACsAKwArACsAKwArACsAKwArACsAKwArACsAKwArAB4AHgAEAAQABAAeACsAKwArACsAKwArACsAKwArACsAKwArACsAKwArACsAKwArACsAKwArACsAKwArACsAKwAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AKwArACsAKwArACsAKwArACsAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAKwArACsAKwArACsAKwArACsAKwArACsAKwArAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeACsAHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgArAFAAUAArACsAUAArACsAUABQACsAKwBQAFAAUABQACsAHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AKwBQACsAUABQAFAAUABQAFAAUAArAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgArAFAAUABQAFAAKwArAFAAUABQAFAAUABQAFAAUAArAFAAUABQAFAAUABQAFAAKwAeAB4AUABQAFAAUABQACsAUAArACsAKwBQAFAAUABQAFAAUABQACsAHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgArACsAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUAAeAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAFAAUABQAFAAUABQAFAAUABQAFAAUAAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAHgAeAB4AHgAeAB4AHgAeAB4AKwArAEsASwBLAEsASwBLAEsASwBLAEsASwBLAEsASwBLAEsASwBLAEsASwBLAEsASwBLAEsASwBLAEsASwBLAEsASwBLAEsABAAEAAQABAAEAAQABAAEAAQABAAEAAQABAAEAAQABAAEAAQABAAEAAQABAAEAB4AHgAeAB4ABAAEAAQABAAEAAQABAAEAAQABAAEAAQABAAEAB4AHgAeAB4AHgAeAB4AHgAEAB4AHgAeAB4AHgAeAB4AHgAeAB4ABAAeAB4ADQANAA0ADQAeACsAKwArACsAKwArACsAKwArACsAKwArACsAKwArAAQABAAEAAQABAArAAQABAAEAAQABAAEAAQABAAEAAQABAAEAAQABAAEACsAKwArACsAKwArACsAKwArACsAKwArACsAKwArACsABAAEAAQABAAEAAQABAArAAQABAAEAAQABAAEAAQABAAEAAQABAAEAAQABAAEAAQABAArACsABAAEAAQABAAEAAQABAArAAQABAArAAQABAAEAAQABAArACsAKwArACsAKwArACsAKwArACsAKwArACsAKwArACsAKwArACsAKwBQAFAAUABQAFAAKwArAFAAUABQAFAAUABQAFAAUABQAAQABAAEAAQABAAEAAQAKwArACsAKwArACsAKwArACsAHgAeAB4AHgAEAAQABAAEAAQABAAEACsAKwArACsAKwBLAEsASwBLAEsASwBLAEsASwBLACsAKwArACsAFgAWAFAAUABQAFAAKwBQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUAArAFAAUAArAFAAKwArAFAAKwBQAFAAUABQAFAAUABQAFAAUABQACsAUABQAFAAUAArAFAAKwBQACsAKwArACsAKwArAFAAKwArACsAKwBQACsAUAArAFAAKwBQAFAAUAArAFAAUAArAFAAKwArAFAAKwBQACsAUAArAFAAKwBQACsAUABQACsAUAArACsAUABQAFAAUAArAFAAUABQAFAAUABQAFAAKwBQAFAAUABQACsAUABQAFAAUAArAFAAKwBQAFAAUABQAFAAUABQAFAAUABQACsAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQACsAKwArACsAKwBQAFAAUAArAFAAUABQAFAAUAArAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUABQAFAAUAArACsAKwArACsAKwArACsAKwArACsAKwArACsAKwArAB4AHgArACsAKwArACsAKwArACsAKwArACsAKwArACsATwBPAE8ATwBPAE8ATwBPAE8ATwBPAE8ATwAlACUAJQAdAB0AHQAdAB0AHQAdAB0AHQAdAB0AHQAdAB0AHQAdAB0AHQAeACUAHQAdAB0AHQAdAB0AHQAdAB0AHQAdAB0AHQAdAB0AHQAdAB0AHgAeACUAJQAlACUAHQAdAB0AHQAdAB0AHQAdAB0AHQAdAB0AHQAdAB0AHQAdACUAJQAlACUAJQAlACUAJQAlACUAJQAlACUAJQAlACUAJQAlACUAJQAlACkAKQApACkAKQApACkAKQApACkAKQApACkAKQApACkAKQApACkAKQApACkAKQApACkAKQAlACUAJQAlACUAIAAlACUAJQAlACUAJQAlACUAJQAlACUAJQAlACUAJQAlACUAJQAlACUAJQAlAB4AHgAlACUAJQAlACUAJQAlACUAJQAlACUAJQAlACUAJQAlACUAJQAlACUAJQAlACUAHgAeACUAJQAlACUAJQAeACUAJQAlACUAJQAgACAAIAAlACUAIAAlACUAIAAgACAAJQAlACUAJQAlACUAJQAlACUAJQAlACUAJQAlACUAJQAlACUAJQAlACUAJQAlACUAJQAlACUAJQAlACUAIQAhACEAIQAhACUAJQAgACAAJQAlACAAIAAgACAAIAAgACAAIAAgACAAIAAlACUAJQAlACUAJQAlACUAJQAlACUAJQAlACUAJQAlACUAIAAgACAAIAAlACUAJQAlACAAJQAgACAAIAAgACAAIAAgACAAIAAlACUAJQAgACUAJQAlACUAIAAgACAAJQAgACAAIAAlACUAJQAlACUAJQAlACUAJQAlACUAJQAlACUAJQAlACUAJQAlACUAJQAlACUAJQAeACUAHgAlAB4AJQAlACUAJQAlACAAJQAlACUAJQAeACUAHgAeACUAJQAlACUAJQAlACUAJQAlACUAJQAlACUAHgAeAB4AHgAeAB4AHgAlACUAJQAlACUAJQAlACUAJQAlACUAJQAlACUAJQAlAB4AHgAeAB4AHgAeAB4AHgAeAB4AJQAlACUAJQAlACUAJQAlACUAJQAlACUAJQAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeACUAJQAlACUAJQAlACUAJQAlACUAJQAlACUAJQAlACUAJQAlACUAJQAlACUAIAAgACUAJQAlACUAIAAlACUAJQAlACUAJQAlACUAJQAlACUAJQAlACUAJQAlACUAIAAlACUAJQAlACAAIAAlACUAJQAlACUAJQAlACUAJQAlACUAJQAlACUAJQAlACUAJQAlACUAJQAeAB4AHgAeAB4AHgAeAB4AJQAlACUAJQAlACUAJQAlACUAJQAlACUAJQAlACUAJQAlACUAJQAlAB4AHgAeAB4AHgAeACUAJQAlACUAJQAlACUAIAAgACAAJQAlACUAIAAgACAAIAAgAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AFwAXABcAFQAVABUAHgAeAB4AHgAlACUAJQAgACUAJQAlACUAJQAlACUAJQAlACUAJQAlACUAJQAlACUAIAAgACAAJQAlACUAJQAlACUAJQAlACUAIAAlACUAJQAlACUAJQAlACUAJQAlACUAIAAlACUAJQAlACUAJQAlACUAJQAlACUAJQAlACUAJQAlACUAJQAlAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAlACUAJQAlACUAJQAlACUAJQAlACUAJQAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAlACUAJQAlAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AJQAlACUAJQAlACUAJQAlAB4AHgAeAB4AHgAeAB4AHgAeAB4AJQAlACUAJQAlACUAHgAeAB4AHgAeAB4AHgAeACUAJQAlACUAJQAlACUAJQAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeAB4AHgAeACUAJQAlACUAJQAlACUAJQAlACUAJQAlACAAIAAgACAAIAAlACAAIAAlACUAJQAlACUAJQAgACUAJQAlACUAJQAlACUAJQAlACAAIAAgACAAIAAgACAAIAAgACAAJQAlACUAIAAgACUAJQAlACUAJQAlACUAJQAlACUAJQAlACUAJQAlACUAJQAlACAAIAAgACAAIAAgACAAIAAgACAAIAAgACAAJQAlACUAJQAlACUAJQAlACUAJQAlACUAJQAlACUAJQAlACUAJQAlACUAJQAlACUAJQAlACUAJQAlACUAJQAlACsAKwBXAFcAVwBXAFcAVwBXAFcAVwBXAFcAVwBXAFcAVwBXAFcAVwBXAFcAVwBXAFcAJQAlACUAJQAlACUAJQAlACUAVwBXAFcAVwBXAFcAVwBXAFcAVwBXAFcAVwBXAFcAVwBXAFcAVwBXAFcAJQAlACUAJQAlACUAJQAlACUAJQAlAFcAVwBXAFcAVwBXAFcAVwBXAFcAVwBXAFcAVwBXAFcAVwBXAFcAVwBXAFcAVwBXAFcAVwBXAFcAVwBXACUAJQAlACUAJQAlACUAJQAlACUAJQAlACUAJQBXAFcAVwBXAFcAVwBXAFcAVwBXAFcAVwBXAFcAVwBXAFcAJQAlACUAJQAlACUAJQAlACUAJQAlACUAJQAlACUAJQAlACUAJQAlACUAJQAlACUAJQAlACUAJQAlACUAJQArAAQAKwArACsAKwArACsAKwArACsAKwArACsAKwArACsAKwArACsAKwArACsAKwArACsAKwArACsAKwArACsABAAEAAQABAAEAAQABAAEAAQABAAEAAQABAAEAAQABAArACsAKwArACsAKwArACsAKwArACsAKwArACsAKwArACsAKwArACsA';
-},{}],15:[function(require,module,exports){
+},{}],18:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -2646,7 +6054,7 @@ var parseAngle = exports.parseAngle = function parseAngle(angle) {
 
     return null;
 };
-},{}],16:[function(require,module,exports){
+},{}],19:[function(require,module,exports){
 (function (process){
 'use strict';
 
@@ -2852,7 +6260,7 @@ var getCurvePoints = function getCurvePoints(x, y, r1, r2, position) {
     }
 };
 }).call(this,require('_process'))
-},{"./drawing/BezierCurve":38,"./drawing/Vector":42,"_process":69}],17:[function(require,module,exports){
+},{"./drawing/BezierCurve":41,"./drawing/Vector":45,"_process":72}],20:[function(require,module,exports){
 (function (process){
 'use strict';
 
@@ -3065,8 +6473,17 @@ var DocumentCloner = exports.DocumentCloner = function () {
             }
 
             if (node instanceof HTMLStyleElement && node.sheet && node.sheet.cssRules) {
+                var self = this;
                 var css = [].slice.call(node.sheet.cssRules, 0).reduce(function (css, rule) {
-                    return css + rule.cssText;
+                    try {
+                        if (rule && rule.cssText) {
+                            return css + rule.cssText;
+                        }
+                        return css;
+                    } catch (err) {
+                        self.logger.log('Unable to access cssText property', rule.name);
+                        return css;
+                    }
                 }, '');
                 var style = node.cloneNode(false);
                 style.textContent = css;
@@ -3429,7 +6846,7 @@ var serializeDoctype = function serializeDoctype(doctype) {
     return str;
 };
 }).call(this,require('_process'))
-},{"./Bounds":16,"./Proxy":28,"./PseudoNodeContent":29,"./ResourceLoader":31,"./Util":36,"./parsing/background":44,"./renderer/CanvasRenderer":65,"_process":69}],18:[function(require,module,exports){
+},{"./Bounds":19,"./Proxy":31,"./PseudoNodeContent":32,"./ResourceLoader":34,"./Util":39,"./parsing/background":47,"./renderer/CanvasRenderer":68,"_process":72}],21:[function(require,module,exports){
 'use strict';
 
 // http://dev.w3.org/csswg/css-color/
@@ -3677,7 +7094,7 @@ var NAMED_COLORS = {
 };
 
 var TRANSPARENT = exports.TRANSPARENT = new Color([0, 0, 0, 0]);
-},{}],19:[function(require,module,exports){
+},{}],22:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -3871,12 +7288,12 @@ var FEATURES = {
 };
 
 exports.default = FEATURES;
-},{"./renderer/ForeignObjectRenderer":66}],20:[function(require,module,exports){
+},{"./renderer/ForeignObjectRenderer":69}],23:[function(require,module,exports){
 (function (process){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
-    value: true
+        value: true
 });
 exports.FontMetrics = undefined;
 
@@ -3889,79 +7306,79 @@ function _classCallCheck(instance, Constructor) { if (!(instance instanceof Cons
 var SAMPLE_TEXT = 'Hidden Text';
 
 var FontMetrics = exports.FontMetrics = function () {
-    function FontMetrics(document) {
-        _classCallCheck(this, FontMetrics);
+        function FontMetrics(document) {
+                _classCallCheck(this, FontMetrics);
 
-        this._data = {};
-        this._document = document;
-    }
-
-    _createClass(FontMetrics, [{
-        key: '_parseMetrics',
-        value: function _parseMetrics(font) {
-            var container = this._document.createElement('div');
-            var img = this._document.createElement('img');
-            var span = this._document.createElement('span');
-
-            var body = this._document.body;
-            if (!body) {
-                throw new Error(process.env.NODE_ENV !== 'production' ? 'No document found for font metrics' : '');
-            }
-
-            container.style.visibility = 'hidden';
-            container.style.fontFamily = font.fontFamily;
-            container.style.fontSize = font.fontSize;
-            container.style.margin = '0';
-            container.style.padding = '0';
-
-            body.appendChild(container);
-
-            img.src = _Util.SMALL_IMAGE;
-            img.width = 1;
-            img.height = 1;
-
-            img.style.margin = '0';
-            img.style.padding = '0';
-            img.style.verticalAlign = 'baseline';
-
-            span.style.fontFamily = font.fontFamily;
-            span.style.fontSize = font.fontSize;
-            span.style.margin = '0';
-            span.style.padding = '0';
-
-            span.appendChild(this._document.createTextNode(SAMPLE_TEXT));
-            container.appendChild(span);
-            container.appendChild(img);
-            var baseline = img.offsetTop - span.offsetTop + 2;
-
-            container.removeChild(span);
-            container.appendChild(this._document.createTextNode(SAMPLE_TEXT));
-
-            container.style.lineHeight = 'normal';
-            img.style.verticalAlign = 'super';
-
-            var middle = img.offsetTop - container.offsetTop + 2;
-
-            body.removeChild(container);
-
-            return { baseline: baseline, middle: middle };
+                this._data = {};
+                this._document = document;
         }
-    }, {
-        key: 'getMetrics',
-        value: function getMetrics(font) {
-            var key = font.fontFamily + ' ' + font.fontSize;
-            if (this._data[key] === undefined) {
-                this._data[key] = this._parseMetrics(font);
-            }
 
-            return this._data[key];
-        }
-    }]);
+        _createClass(FontMetrics, [{
+                key: '_parseMetrics',
+                value: function _parseMetrics(font) {
+                        var container = this._document.createElement('div');
+                        var img = this._document.createElement('img');
+                        var span = this._document.createElement('span');
 
-    return FontMetrics;
+                        var body = this._document.body;
+                        if (!body) {
+                                throw new Error(process.env.NODE_ENV !== 'production' ? 'No document found for font metrics' : '');
+                        }
+
+                        container.style.visibility = 'hidden';
+                        container.style.fontFamily = font.fontFamily;
+                        container.style.fontSize = font.fontSize;
+                        container.style.margin = '0';
+                        container.style.padding = '0';
+
+                        body.appendChild(container);
+
+                        img.src = _Util.SMALL_IMAGE;
+                        img.width = 1;
+                        img.height = 1;
+
+                        img.style.margin = '0';
+                        img.style.padding = '0';
+                        img.style.verticalAlign = 'baseline';
+
+                        span.style.fontFamily = font.fontFamily;
+                        span.style.fontSize = font.fontSize;
+                        span.style.margin = '0';
+                        span.style.padding = '0';
+
+                        span.appendChild(this._document.createTextNode(SAMPLE_TEXT));
+                        container.appendChild(span);
+                        container.appendChild(img);
+                        var baseline = img.offsetTop - span.offsetTop + 2;
+
+                        container.removeChild(span);
+                        container.appendChild(this._document.createTextNode(SAMPLE_TEXT));
+
+                        container.style.lineHeight = 'normal';
+                        img.style.verticalAlign = 'super';
+
+                        var middle = img.offsetTop - container.offsetTop + 2;
+
+                        body.removeChild(container);
+
+                        return { baseline: baseline, middle: middle };
+                }
+        }, {
+                key: 'getMetrics',
+                value: function getMetrics(font) {
+                        var key = font.fontFamily + ' ' + font.fontSize;
+                        if (this._data[key] === undefined) {
+                                this._data[key] = this._parseMetrics(font);
+                        }
+
+                        return this._data[key];
+                }
+        }]);
+
+        return FontMetrics;
 }();
 }).call(this,require('_process'))
-},{"./Util":36,"_process":69}],21:[function(require,module,exports){
+},{"./Util":39,"_process":72}],24:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -4409,7 +7826,7 @@ var transformObsoleteColorStops = function transformObsoleteColorStops(args) {
         }
     });
 };
-},{"./Angle":15,"./Color":18,"./Length":23,"./NodeContainer":26,"./Util":36}],22:[function(require,module,exports){
+},{"./Angle":18,"./Color":21,"./Length":26,"./NodeContainer":29,"./Util":39}],25:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -4532,7 +7949,7 @@ var getInputValue = function getInputValue(node) {
 
     return value.length === 0 ? node.placeholder || '' : value;
 };
-},{"./Bounds":16,"./Color":18,"./Length":23,"./TextBounds":33,"./TextContainer":34,"./Util":36,"./drawing/Circle":39,"./drawing/Vector":42,"./parsing/background":44,"./parsing/border":45}],23:[function(require,module,exports){
+},{"./Bounds":19,"./Color":21,"./Length":26,"./TextBounds":36,"./TextContainer":37,"./Util":39,"./drawing/Circle":42,"./drawing/Vector":45,"./parsing/background":47,"./parsing/border":48}],26:[function(require,module,exports){
 (function (process){
 'use strict';
 
@@ -4614,7 +8031,7 @@ var calculateLengthFromValueWithUnit = exports.calculateLengthFromValueWithUnit 
     }
 };
 }).call(this,require('_process'))
-},{"./NodeContainer":26,"_process":69}],24:[function(require,module,exports){
+},{"./NodeContainer":29,"_process":72}],27:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -4932,7 +8349,7 @@ var createCounterText = exports.createCounterText = function createCounterText(v
             return createCounterStyleFromRange(value, 48, 57, true, defaultSuffix);
     }
 };
-},{"./NodeContainer":26,"./TextContainer":34,"./Unicode":35,"./Util":36,"./parsing/listStyle":52}],25:[function(require,module,exports){
+},{"./NodeContainer":29,"./TextContainer":37,"./Unicode":38,"./Util":39,"./parsing/listStyle":55}],28:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -4991,7 +8408,7 @@ var Logger = function () {
 }();
 
 exports.default = Logger;
-},{}],26:[function(require,module,exports){
+},{}],29:[function(require,module,exports){
 (function (process){
 'use strict';
 
@@ -5234,7 +8651,7 @@ var getImage = function getImage(node, resourceLoader) {
     return null;
 };
 }).call(this,require('_process'))
-},{"./Bounds":16,"./Color":18,"./Input":22,"./ListItem":24,"./Util":36,"./parsing/background":44,"./parsing/border":45,"./parsing/borderRadius":46,"./parsing/display":47,"./parsing/float":48,"./parsing/font":49,"./parsing/letterSpacing":50,"./parsing/lineBreak":51,"./parsing/listStyle":52,"./parsing/margin":53,"./parsing/overflow":54,"./parsing/overflowWrap":55,"./parsing/padding":56,"./parsing/position":57,"./parsing/textDecoration":58,"./parsing/textShadow":59,"./parsing/textTransform":60,"./parsing/transform":61,"./parsing/visibility":62,"./parsing/word-break":63,"./parsing/zIndex":64,"_process":69}],27:[function(require,module,exports){
+},{"./Bounds":19,"./Color":21,"./Input":25,"./ListItem":27,"./Util":39,"./parsing/background":47,"./parsing/border":48,"./parsing/borderRadius":49,"./parsing/display":50,"./parsing/float":51,"./parsing/font":52,"./parsing/letterSpacing":53,"./parsing/lineBreak":54,"./parsing/listStyle":55,"./parsing/margin":56,"./parsing/overflow":57,"./parsing/overflowWrap":58,"./parsing/padding":59,"./parsing/position":60,"./parsing/textDecoration":61,"./parsing/textShadow":62,"./parsing/textTransform":63,"./parsing/transform":64,"./parsing/visibility":65,"./parsing/word-break":66,"./parsing/zIndex":67,"_process":72}],30:[function(require,module,exports){
 (function (process){
 'use strict';
 
@@ -5360,7 +8777,7 @@ var isBodyWithTransparentRoot = function isBodyWithTransparentRoot(container, no
     return node.nodeName === 'BODY' && container.parent instanceof _NodeContainer2.default && container.parent.style.background.backgroundColor.isTransparent();
 };
 }).call(this,require('_process'))
-},{"./Input":22,"./ListItem":24,"./NodeContainer":26,"./StackingContext":32,"./TextContainer":34,"./parsing/listStyle":52,"_process":69}],28:[function(require,module,exports){
+},{"./Input":25,"./ListItem":27,"./NodeContainer":29,"./StackingContext":35,"./TextContainer":37,"./parsing/listStyle":55,"_process":72}],31:[function(require,module,exports){
 (function (process){
 'use strict';
 
@@ -5428,7 +8845,7 @@ var Proxy = exports.Proxy = function Proxy(src, options) {
     });
 };
 }).call(this,require('_process'))
-},{"./Feature":19,"_process":69}],29:[function(require,module,exports){
+},{"./Feature":22,"_process":72}],32:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -5753,7 +9170,7 @@ var formatCounterValue = function formatCounterValue(counter, glue, format) {
 
     return result;
 };
-},{"./ListItem":24,"./parsing/listStyle":52}],30:[function(require,module,exports){
+},{"./ListItem":27,"./parsing/listStyle":55}],33:[function(require,module,exports){
 (function (process){
 'use strict';
 
@@ -6084,7 +9501,7 @@ var sortByZIndex = function sortByZIndex(a, b) {
     return a.container.index > b.container.index ? 1 : -1;
 };
 }).call(this,require('_process'))
-},{"./Bounds":16,"./Font":20,"./Gradient":21,"./TextContainer":34,"./parsing/background":44,"./parsing/border":45,"_process":69}],31:[function(require,module,exports){
+},{"./Bounds":19,"./Font":23,"./Gradient":24,"./TextContainer":37,"./parsing/background":47,"./parsing/border":48,"_process":72}],34:[function(require,module,exports){
 (function (process){
 'use strict';
 
@@ -6351,7 +9768,7 @@ var _loadImage = function _loadImage(src, timeout) {
     });
 };
 }).call(this,require('_process'))
-},{"./Feature":19,"./Proxy":28,"_process":69}],32:[function(require,module,exports){
+},{"./Feature":22,"./Proxy":31,"_process":72}],35:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -6397,7 +9814,7 @@ var StackingContext = function () {
 }();
 
 exports.default = StackingContext;
-},{"./NodeContainer":26,"./parsing/position":57}],33:[function(require,module,exports){
+},{"./NodeContainer":29,"./parsing/position":60}],36:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -6476,7 +9893,7 @@ var getRangeBounds = function getRangeBounds(node, offset, length, scrollX, scro
     range.setEnd(node, offset + length);
     return _Bounds.Bounds.fromClientRect(range.getBoundingClientRect(), scrollX, scrollY);
 };
-},{"./Bounds":16,"./Feature":19,"./Unicode":35,"./parsing/textDecoration":58}],34:[function(require,module,exports){
+},{"./Bounds":19,"./Feature":22,"./Unicode":38,"./parsing/textDecoration":61}],37:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -6536,7 +9953,7 @@ function capitalize(m, p1, p2) {
 
     return m;
 }
-},{"./TextBounds":33,"./parsing/textTransform":60}],35:[function(require,module,exports){
+},{"./TextBounds":36,"./parsing/textTransform":63}],38:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -6582,7 +9999,7 @@ var breakWords = exports.breakWords = function breakWords(str, parent) {
 
     return words;
 };
-},{"./NodeContainer":26,"./parsing/overflowWrap":55,"css-line-break":13}],36:[function(require,module,exports){
+},{"./NodeContainer":29,"./parsing/overflowWrap":58,"css-line-break":16}],39:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -6609,7 +10026,7 @@ var copyCSSStyles = exports.copyCSSStyles = function copyCSSStyles(style, target
 };
 
 var SMALL_IMAGE = exports.SMALL_IMAGE = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
-},{}],37:[function(require,module,exports){
+},{}],40:[function(require,module,exports){
 (function (process){
 'use strict';
 
@@ -6744,7 +10161,7 @@ var renderElement = exports.renderElement = function renderElement(element, opti
     });
 };
 }).call(this,require('_process'))
-},{"./Bounds":16,"./Clone":17,"./Color":18,"./Feature":19,"./Font":20,"./Logger":25,"./NodeParser":27,"./Renderer":30,"./renderer/ForeignObjectRenderer":66,"_process":69}],38:[function(require,module,exports){
+},{"./Bounds":19,"./Clone":20,"./Color":21,"./Feature":22,"./Font":23,"./Logger":28,"./NodeParser":30,"./Renderer":33,"./renderer/ForeignObjectRenderer":69,"_process":72}],41:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -6800,7 +10217,7 @@ var BezierCurve = function () {
 }();
 
 exports.default = BezierCurve;
-},{"./Path":40,"./Vector":42}],39:[function(require,module,exports){
+},{"./Path":43,"./Vector":45}],42:[function(require,module,exports){
 (function (process){
 'use strict';
 
@@ -6834,7 +10251,7 @@ var Circle = function Circle(x, y, radius) {
 
 exports.default = Circle;
 }).call(this,require('_process'))
-},{"./Path":40,"_process":69}],40:[function(require,module,exports){
+},{"./Path":43,"_process":72}],43:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -6845,7 +10262,7 @@ var PATH = exports.PATH = {
     BEZIER_CURVE: 1,
     CIRCLE: 2
 };
-},{}],41:[function(require,module,exports){
+},{}],44:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -6862,7 +10279,7 @@ var Size = function Size(width, height) {
 };
 
 exports.default = Size;
-},{}],42:[function(require,module,exports){
+},{}],45:[function(require,module,exports){
 (function (process){
 'use strict';
 
@@ -6892,7 +10309,7 @@ var Vector = function Vector(x, y) {
 
 exports.default = Vector;
 }).call(this,require('_process'))
-},{"./Path":40,"_process":69}],43:[function(require,module,exports){
+},{"./Path":43,"_process":72}],46:[function(require,module,exports){
 (function (process){
 'use strict';
 
@@ -6915,7 +10332,7 @@ function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { de
 var html2canvas = function html2canvas(element, conf) {
     var config = conf || {};
     var logger = new _Logger2.default(typeof config.logging === 'boolean' ? config.logging : true);
-    logger.log('html2canvas ' + "$npm_package_version");
+    logger.log('html2canvas ' + '$npm_package_version');
 
     if (process.env.NODE_ENV !== 'production' && typeof config.onrendered === 'function') {
         logger.error('onrendered option is deprecated, html2canvas returns a Promise with the canvas as the value');
@@ -6975,7 +10392,7 @@ html2canvas.CanvasRenderer = _CanvasRenderer2.default;
 
 module.exports = html2canvas;
 }).call(this,require('_process'))
-},{"./Bounds":16,"./Logger":25,"./Window":37,"./renderer/CanvasRenderer":65,"_process":69}],44:[function(require,module,exports){
+},{"./Bounds":19,"./Logger":28,"./Window":40,"./renderer/CanvasRenderer":68,"_process":72}],47:[function(require,module,exports){
 (function (process){
 'use strict';
 
@@ -7331,7 +10748,7 @@ var parseBackgroundImage = exports.parseBackgroundImage = function parseBackgrou
     return results;
 };
 }).call(this,require('_process'))
-},{"../Bounds":16,"../Color":18,"../Length":23,"../drawing/Size":41,"../drawing/Vector":42,"./padding":56,"_process":69}],45:[function(require,module,exports){
+},{"../Bounds":19,"../Color":21,"../Length":26,"../drawing/Size":44,"../drawing/Vector":45,"./padding":59,"_process":72}],48:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -7381,7 +10798,7 @@ var parseBorder = exports.parseBorder = function parseBorder(style) {
         };
     });
 };
-},{"../Color":18}],46:[function(require,module,exports){
+},{"../Color":21}],49:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -7411,7 +10828,7 @@ var parseBorderRadius = exports.parseBorderRadius = function parseBorderRadius(s
         return typeof vertical === 'undefined' ? [horizontal, horizontal] : [horizontal, vertical];
     });
 };
-},{"../Length":23}],47:[function(require,module,exports){
+},{"../Length":26}],50:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -7522,7 +10939,7 @@ var setDisplayBit = function setDisplayBit(bit, display) {
 var parseDisplay = exports.parseDisplay = function parseDisplay(display) {
     return display.split(' ').reduce(setDisplayBit, 0);
 };
-},{}],48:[function(require,module,exports){
+},{}],51:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -7549,7 +10966,7 @@ var parseCSSFloat = exports.parseCSSFloat = function parseCSSFloat(float) {
     }
     return FLOAT.NONE;
 };
-},{}],49:[function(require,module,exports){
+},{}],52:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -7584,7 +11001,7 @@ var parseFont = exports.parseFont = function parseFont(style) {
         fontWeight: fontWeight
     };
 };
-},{}],50:[function(require,module,exports){
+},{}],53:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -7597,7 +11014,7 @@ var parseLetterSpacing = exports.parseLetterSpacing = function parseLetterSpacin
     var value = parseFloat(letterSpacing);
     return isNaN(value) ? 0 : value;
 };
-},{}],51:[function(require,module,exports){
+},{}],54:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -7617,7 +11034,7 @@ var parseLineBreak = exports.parseLineBreak = function parseLineBreak(wordBreak)
             return LINE_BREAK.NORMAL;
     }
 };
-},{}],52:[function(require,module,exports){
+},{}],55:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -7821,7 +11238,7 @@ var parseListStylePosition = function parseListStylePosition(position) {
             return LIST_STYLE_POSITION.OUTSIDE;
     }
 };
-},{"./background":44}],53:[function(require,module,exports){
+},{"./background":47}],56:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -7842,7 +11259,7 @@ var parseMargin = exports.parseMargin = function parseMargin(style) {
         return new _Length2.default(style.getPropertyValue('margin-' + side));
     });
 };
-},{"../Length":23}],54:[function(require,module,exports){
+},{"../Length":26}],57:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -7868,7 +11285,7 @@ var parseOverflow = exports.parseOverflow = function parseOverflow(overflow) {
             return OVERFLOW.VISIBLE;
     }
 };
-},{}],55:[function(require,module,exports){
+},{}],58:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -7888,7 +11305,7 @@ var parseOverflowWrap = exports.parseOverflowWrap = function parseOverflowWrap(o
             return OVERFLOW_WRAP.NORMAL;
     }
 };
-},{}],56:[function(require,module,exports){
+},{}],59:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -7916,7 +11333,7 @@ var parsePadding = exports.parsePadding = function parsePadding(style) {
         return new _Length2.default(style.getPropertyValue('padding-' + side));
     });
 };
-},{"../Length":23}],57:[function(require,module,exports){
+},{"../Length":26}],60:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -7944,7 +11361,7 @@ var parsePosition = exports.parsePosition = function parsePosition(position) {
 
     return POSITION.STATIC;
 };
-},{}],58:[function(require,module,exports){
+},{}],61:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -8026,7 +11443,7 @@ var parseTextDecoration = exports.parseTextDecoration = function parseTextDecora
         textDecorationStyle: textDecorationStyle
     };
 };
-},{"../Color":18}],59:[function(require,module,exports){
+},{"../Color":21}],62:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -8122,7 +11539,7 @@ var parseTextShadow = exports.parseTextShadow = function parseTextShadow(textSha
 
     return shadows;
 };
-},{"../Color":18}],60:[function(require,module,exports){
+},{"../Color":21}],63:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -8147,7 +11564,7 @@ var parseTextTransform = exports.parseTextTransform = function parseTextTransfor
 
     return TEXT_TRANSFORM.NONE;
 };
-},{}],61:[function(require,module,exports){
+},{}],64:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -8215,7 +11632,7 @@ var parseTransformMatrix = function parseTransformMatrix(transform) {
     }
     return null;
 };
-},{"../Length":23}],62:[function(require,module,exports){
+},{"../Length":26}],65:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -8238,7 +11655,7 @@ var parseVisibility = exports.parseVisibility = function parseVisibility(visibil
             return VISIBILITY.VISIBLE;
     }
 };
-},{}],63:[function(require,module,exports){
+},{}],66:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -8261,7 +11678,7 @@ var parseWordBreak = exports.parseWordBreak = function parseWordBreak(wordBreak)
             return WORD_BREAK.NORMAL;
     }
 };
-},{}],64:[function(require,module,exports){
+},{}],67:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -8274,7 +11691,7 @@ var parseZIndex = exports.parseZIndex = function parseZIndex(zIndex) {
         order: auto ? 0 : parseInt(zIndex, 10)
     };
 };
-},{}],65:[function(require,module,exports){
+},{}],68:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -8529,7 +11946,7 @@ var CanvasRenderer = function () {
 }();
 
 exports.default = CanvasRenderer;
-},{"../drawing/Path":40,"../parsing/textDecoration":58}],66:[function(require,module,exports){
+},{"../drawing/Path":43,"../parsing/textDecoration":61}],69:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -8609,7 +12026,7 @@ var loadSerializedSVG = exports.loadSerializedSVG = function loadSerializedSVG(s
         img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(new XMLSerializer().serializeToString(svg));
     });
 };
-},{}],67:[function(require,module,exports){
+},{}],70:[function(require,module,exports){
 (function (global){
 !function(t,e){"object"==typeof exports&&"undefined"!=typeof module?module.exports=e():"function"==typeof define&&define.amd?define(e):t.jspdf=e()}(this,function(){"use strict";var t="function"==typeof Symbol&&"symbol"==typeof Symbol.iterator?function(t){return typeof t}:function(t){return t&&"function"==typeof Symbol&&t.constructor===Symbol&&t!==Symbol.prototype?"symbol":typeof t},e=(function(){function t(t){this.value=t}function e(e){function n(i,o){try{var a=e[i](o),s=a.value;s instanceof t?Promise.resolve(s.value).then(function(t){n("next",t)},function(t){n("throw",t)}):r(a.done?"return":"normal",a.value)}catch(t){r("throw",t)}}function r(t,e){switch(t){case"return":i.resolve({value:e,done:!0});break;case"throw":i.reject(e);break;default:i.resolve({value:e,done:!1})}(i=i.next)?n(i.key,i.arg):o=null}var i,o;this._invoke=function(t,e){return new Promise(function(r,a){var s={key:t,arg:e,resolve:r,reject:a,next:null};o?o=o.next=s:(i=o=s,n(t,e))})},"function"!=typeof e.return&&(this.return=void 0)}"function"==typeof Symbol&&Symbol.asyncIterator&&(e.prototype[Symbol.asyncIterator]=function(){return this}),e.prototype.next=function(t){return this._invoke("next",t)},e.prototype.throw=function(t){return this._invoke("throw",t)},e.prototype.return=function(t){return this._invoke("return",t)}}(),function(e){function n(t){var n={};this.subscribe=function(t,e,r){if("function"!=typeof e)return!1;n.hasOwnProperty(t)||(n[t]={});var i=Math.random().toString(35);return n[t][i]=[e,!!r],i},this.unsubscribe=function(t){for(var e in n)if(n[e][t])return delete n[e][t],!0;return!1},this.publish=function(r){if(n.hasOwnProperty(r)){var i=Array.prototype.slice.call(arguments,1),o=[];for(var a in n[r]){var s=n[r][a];try{s[0].apply(t,i)}catch(t){e.console&&console.error("jsPDF PubSub Error",t.message,t)}s[1]&&o.push(a)}o.length&&o.forEach(this.unsubscribe)}}}function i(c,l,u,h){var f={};"object"===(void 0===c?"undefined":t(c))&&(c=(f=c).orientation,l=f.unit||l,u=f.format||u,h=f.compress||f.compressPdf||h),l=l||"mm",u=u||"a4",c=(""+(c||"P")).toLowerCase();(""+u).toLowerCase();var d,p,m,g,w,y,v,b,x,k=!!h&&"function"==typeof Uint8Array,_=f.textColor||"0 g",C=f.drawColor||"0 G",A=f.fontSize||16,S=f.lineHeight||1.15,q=f.lineWidth||.200025,T=2,P=!1,I=[],E={},O={},F=0,B=[],R=[],D=[],j=[],z=[],N=0,L=0,M=0,U={title:"",subject:"",author:"",keywords:"",creator:""},H={},W=new n(H),X=f.hotfixes||[],V=function(t){return t.toFixed(2)},G=function(t){return t.toFixed(3)},Y=function(t){return("0"+parseInt(t)).slice(-2)},J=function(t){P?B[g].push(t):(M+=t.length+1,j.push(t))},Q=function(){return T++,I[T]=M,J(T+" 0 obj"),T},K=function(t){J("stream"),J(t),J("endstream")},$=function(){var t,n,r,a,s,c,l,u,h,f=[];for(l=e.adler32cs||i.adler32cs,k&&void 0===l&&(k=!1),t=1;t<=F;t++){if(f.push(Q()),u=(w=D[t].width)*p,h=(y=D[t].height)*p,J("<</Type /Page"),J("/Parent 1 0 R"),J("/Resources 2 0 R"),J("/MediaBox [0 0 "+V(u)+" "+V(h)+"]"),W.publish("putPage",{pageNumber:t,page:B[t]}),J("/Contents "+(T+1)+" 0 R"),J(">>"),J("endobj"),n=B[t].join("\n"),Q(),k){for(r=[],a=n.length;a--;)r[a]=n.charCodeAt(a);c=l.from(n),(s=new o(6)).append(new Uint8Array(r)),n=s.flush(),(r=new Uint8Array(n.length+6)).set(new Uint8Array([120,156])),r.set(n,2),r.set(new Uint8Array([255&c,c>>8&255,c>>16&255,c>>24&255]),n.length+2),n=String.fromCharCode.apply(null,r),J("<</Length "+n.length+" /Filter [/FlateDecode]>>")}else J("<</Length "+n.length+">>");K(n),J("endobj")}I[1]=M,J("1 0 obj"),J("<</Type /Pages");var d="/Kids [";for(a=0;a<F;a++)d+=f[a]+" 0 R ";J(d+"]"),J("/Count "+F),J(">>"),J("endobj"),W.publish("postPutPages")},Z=function(t){t.objectNumber=Q(),J("<</BaseFont/"+t.PostScriptName+"/Type/Font"),"string"==typeof t.encoding&&J("/Encoding/"+t.encoding),J("/Subtype/Type1>>"),J("endobj")},tt=function(){for(var t in E)E.hasOwnProperty(t)&&Z(E[t])},et=function(){W.publish("putXobjectDict")},nt=function(){J("/ProcSet [/PDF /Text /ImageB /ImageC /ImageI]"),J("/Font <<");for(var t in E)E.hasOwnProperty(t)&&J("/"+t+" "+E[t].objectNumber+" 0 R");J(">>"),J("/XObject <<"),et(),J(">>")},rt=function(){tt(),W.publish("putResources"),I[2]=M,J("2 0 obj"),J("<<"),nt(),J(">>"),J("endobj"),W.publish("postPutResources")},it=function(){W.publish("putAdditionalObjects");for(var t=0;t<z.length;t++){var e=z[t];I[e.objId]=M,J(e.objId+" 0 obj"),J(e.content),J("endobj")}T+=z.length,W.publish("postPutAdditionalObjects")},ot=function(t,e,n){O.hasOwnProperty(e)||(O[e]={}),O[e][n]=t},at=function(t,e,n,r){var i="F"+(Object.keys(E).length+1).toString(10),o=E[i]={id:i,PostScriptName:t,fontName:e,fontStyle:n,encoding:r,metadata:{}};return ot(i,e,n),W.publish("addFont",o),i},st=function(t,e){var n,r,i,o,a,s,c,l,u;if(e=e||{},i=e.sourceEncoding||"Unicode",a=e.outputEncoding,(e.autoencode||a)&&E[d].metadata&&E[d].metadata[i]&&E[d].metadata[i].encoding&&(o=E[d].metadata[i].encoding,!a&&E[d].encoding&&(a=E[d].encoding),!a&&o.codePages&&(a=o.codePages[0]),"string"==typeof a&&(a=o[a]),a)){for(c=!1,s=[],n=0,r=t.length;n<r;n++)(l=a[t.charCodeAt(n)])?s.push(String.fromCharCode(l)):s.push(t[n]),s[n].charCodeAt(0)>>8&&(c=!0);t=s.join("")}for(n=t.length;void 0===c&&0!==n;)t.charCodeAt(n-1)>>8&&(c=!0),n--;if(!c)return t;for(s=e.noBOM?[]:[254,255],n=0,r=t.length;n<r;n++){if(l=t.charCodeAt(n),(u=l>>8)>>8)throw new Error("Character at position "+n+" of string '"+t+"' exceeds 16bits. Cannot be encoded into UCS-2 BE");s.push(u),s.push(l-(u<<8))}return String.fromCharCode.apply(void 0,s)},ct=function(t,e){return st(t,e).replace(/\\/g,"\\\\").replace(/\(/g,"\\(").replace(/\)/g,"\\)")},lt=function(){J("/Producer (jsPDF "+i.version+")");for(var t in U)U.hasOwnProperty(t)&&U[t]&&J("/"+t.substr(0,1).toUpperCase()+t.substr(1)+" ("+ct(U[t])+")");var e=new Date,n=e.getTimezoneOffset(),r=n<0?"+":"-",o=Math.floor(Math.abs(n/60)),a=Math.abs(n%60),s=[r,Y(o),"'",Y(a),"'"].join("");J(["/CreationDate (D:",e.getFullYear(),Y(e.getMonth()+1),Y(e.getDate()),Y(e.getHours()),Y(e.getMinutes()),Y(e.getSeconds()),s,")"].join(""))},ut=function(){switch(J("/Type /Catalog"),J("/Pages 1 0 R"),b||(b="fullwidth"),b){case"fullwidth":J("/OpenAction [3 0 R /FitH null]");break;case"fullheight":J("/OpenAction [3 0 R /FitV null]");break;case"fullpage":J("/OpenAction [3 0 R /Fit]");break;case"original":J("/OpenAction [3 0 R /XYZ null null 1]");break;default:var t=""+b;"%"===t.substr(t.length-1)&&(b=parseInt(b)/100),"number"==typeof b&&J("/OpenAction [3 0 R /XYZ null null "+V(b)+"]")}switch(x||(x="continuous"),x){case"continuous":J("/PageLayout /OneColumn");break;case"single":J("/PageLayout /SinglePage");break;case"two":case"twoleft":J("/PageLayout /TwoColumnLeft");break;case"tworight":J("/PageLayout /TwoColumnRight")}v&&J("/PageMode /"+v),W.publish("putCatalog")},ht=function(){J("/Size "+(T+1)),J("/Root "+T+" 0 R"),J("/Info "+(T-1)+" 0 R")},ft=function(t,e){var n="string"==typeof e&&e.toLowerCase();if("string"==typeof t){var r=t.toLowerCase();s.hasOwnProperty(r)&&(t=s[r][0]/p,e=s[r][1]/p)}if(Array.isArray(t)&&(e=t[1],t=t[0]),n){switch(n.substr(0,1)){case"l":e>t&&(n="s");break;case"p":t>e&&(n="s")}"s"===n&&(m=t,t=e,e=m)}P=!0,B[++F]=[],D[F]={width:Number(t)||w,height:Number(e)||y},R[F]={},mt(F)},dt=function(){ft.apply(this,arguments),J(V(q*p)+" w"),J(C),0!==N&&J(N+" J"),0!==L&&J(L+" j"),W.publish("addPage",{pageNumber:F})},pt=function(t){t>0&&t<=F&&(B.splice(t,1),D.splice(t,1),g>--F&&(g=F),this.setPage(g))},mt=function(t){t>0&&t<=F&&(g=t,w=D[t].width,y=D[t].height)},gt=function(t,e){var n;switch(t=void 0!==t?t:E[d].fontName,e=void 0!==e?e:E[d].fontStyle,void 0!==t&&(t=t.toLowerCase()),t){case"sans-serif":case"verdana":case"arial":case"helvetica":t="helvetica";break;case"fixed":case"monospace":case"terminal":case"courier":t="courier";break;case"serif":case"cursive":case"fantasy":default:t="times"}try{n=O[t][e]}catch(t){}return n||null==(n=O.times[e])&&(n=O.times.normal),n},wt=function(){P=!1,T=2,M=0,j=[],I=[],z=[],W.publish("buildDocument"),J("%PDF-"+a),$(),it(),rt(),Q(),J("<<"),lt(),J(">>"),J("endobj"),Q(),J("<<"),ut(),J(">>"),J("endobj");var t,e=M,n="0000000000";for(J("xref"),J("0 "+(T+1)),J(n+" 65535 f "),t=1;t<=T;t++){var r=I[t];J("function"==typeof r?(n+I[t]()).slice(-10)+" 00000 n ":(n+I[t]).slice(-10)+" 00000 n ")}return J("trailer"),J("<<"),ht(),J(">>"),J("startxref"),J(""+e),J("%%EOF"),P=!0,j.join("\n")},yt=function(t){var e="S";return"F"===t?e="f":"FD"===t||"DF"===t?e="B":"f"!==t&&"f*"!==t&&"B"!==t&&"B*"!==t||(e=t),e},vt=function(){for(var t=wt(),e=t.length,n=new ArrayBuffer(e),r=new Uint8Array(n);e--;)r[e]=t.charCodeAt(e);return n},bt=function(){return new Blob([vt()],{type:"application/pdf"})},xt=function(t){return t.foo=function(){try{return t.apply(this,arguments)}catch(t){var n=t.stack||"";~n.indexOf(" at ")&&(n=n.split(" at ")[1]);var r="Error in function "+n.split("\n")[0].split("<")[0]+": "+t.message;if(!e.console)throw new Error(r);e.console.error(r,t),e.alert&&alert(r)}},t.foo.bar=t,t.foo}(function(t,n){var i="dataur"===(""+t).substr(0,6)?"data:application/pdf;base64,"+btoa(wt()):0;switch(t){case void 0:return wt();case"save":if(navigator.getUserMedia&&(void 0===e.URL||void 0===e.URL.createObjectURL))return H.output("dataurlnewwindow");r(bt(),n),"function"==typeof r.unload&&e.setTimeout&&setTimeout(r.unload,911);break;case"arraybuffer":return vt();case"blob":return bt();case"bloburi":case"bloburl":return e.URL&&e.URL.createObjectURL(bt())||void 0;case"datauristring":case"dataurlstring":return i;case"dataurlnewwindow":var o=e.open(i);if(o||"undefined"==typeof safari)return o;case"datauri":case"dataurl":return e.document.location.href=i;default:throw new Error('Output type "'+t+'" is not supported.')}}),kt=function(t){return!0===Array.isArray(X)&&X.indexOf(t)>-1};switch(l){case"pt":p=1;break;case"mm":p=72/25.4000508;break;case"cm":p=72/2.54000508;break;case"in":p=72;break;case"px":p=1==kt("px_scaling")?.75:96/72;break;case"pc":case"em":p=12;break;case"ex":p=6;break;default:throw"Invalid unit: "+l}H.internal={pdfEscape:ct,getStyle:yt,getFont:function(){return E[gt.apply(H,arguments)]},getFontSize:function(){return A},getLineHeight:function(){return A*S},write:function(t){J(1===arguments.length?t:Array.prototype.join.call(arguments," "))},getCoordinateString:function(t){return V(t*p)},getVerticalCoordinateString:function(t){return V((y-t)*p)},collections:{},newObject:Q,newAdditionalObject:function(){var t=2*B.length+1,e={objId:t+=z.length,content:""};return z.push(e),e},newObjectDeferred:function(){return T++,I[T]=function(){return M},T},newObjectDeferredBegin:function(t){I[t]=M},putStream:K,events:W,scaleFactor:p,pageSize:{get width(){return w},get height(){return y}},output:function(t,e){return xt(t,e)},getNumberOfPages:function(){return B.length-1},pages:B,out:J,f2:V,getPageInfo:function(t){return{objId:2*(t-1)+3,pageNumber:t,pageContext:R[t]}},getCurrentPageInfo:function(){return{objId:2*(g-1)+3,pageNumber:g,pageContext:R[g]}},getPDFVersion:function(){return a},hasHotfix:kt},H.addPage=function(){return dt.apply(this,arguments),this},H.setPage=function(){return mt.apply(this,arguments),this},H.insertPage=function(t){return this.addPage(),this.movePage(g,t),this},H.movePage=function(t,e){if(t>e){for(var n=B[t],r=D[t],i=R[t],o=t;o>e;o--)B[o]=B[o-1],D[o]=D[o-1],R[o]=R[o-1];B[e]=n,D[e]=r,R[e]=i,this.setPage(e)}else if(t<e){for(var n=B[t],r=D[t],i=R[t],o=t;o<e;o++)B[o]=B[o+1],D[o]=D[o+1],R[o]=R[o+1];B[e]=n,D[e]=r,R[e]=i,this.setPage(e)}return this},H.deletePage=function(){return pt.apply(this,arguments),this},H.setDisplayMode=function(t,e,n){if(b=t,x=e,v=n,-1==[void 0,null,"UseNone","UseOutlines","UseThumbs","FullScreen"].indexOf(n))throw new Error('Page mode must be one of UseNone, UseOutlines, UseThumbs, or FullScreen. "'+n+'" is not recognized.');return this},H.text=function(t,e,n,r,i,o){function a(t){return t=t.split("\t").join(Array(f.TabLen||9).join(" ")),ct(t,r)}"number"==typeof t&&(m=n,n=e,e=t,t=m),"string"==typeof t&&(t=t.match(/[\n\r]/)?t.split(/\r\n|\r|\n/g):[t]),"string"==typeof i&&(o=i,i=null),"string"==typeof r&&(o=r,r=null),"number"==typeof r&&(i=r,r=null);var s="",c="Td";if(i){i*=Math.PI/180;var l=Math.cos(i),u=Math.sin(i);s=[V(l),V(u),V(-1*u),V(l),""].join(" "),c="Tm"}"noBOM"in(r=r||{})||(r.noBOM=!0),"autoencode"in r||(r.autoencode=!0);var h="",g=this.internal.getCurrentPageInfo().pageContext;if(!0===r.stroke?!0!==g.lastTextWasStroke&&(h="1 Tr\n",g.lastTextWasStroke=!0):(g.lastTextWasStroke&&(h="0 Tr\n"),g.lastTextWasStroke=!1),void 0===this._runningPageHeight&&(this._runningPageHeight=0),"string"==typeof t)t=a(t);else{if("[object Array]"!==Object.prototype.toString.call(t))throw new Error('Type of text must be string or Array. "'+t+'" is not recognized.');for(var w=t.concat(),v=[],b=w.length;b--;)v.push(a(w.shift()));if(o){var x,k,C,q=A*S,T=t.map(function(t){return this.getStringUnitWidth(t)*A/p},this);if(C=Math.max.apply(Math,T),"center"===o)x=e-C/2,e-=T[0]/2;else{if("right"!==o)throw new Error('Unrecognized alignment option, use "center" or "right".');x=e-C,e-=T[0]}k=e,t=v[0];for(var P=1,b=v.length;P<b;P++){var I=C-T[P];"center"===o&&(I/=2),t+=") Tj\n"+(x-k+I)+" -"+q+" Td ("+v[P],k=x+I}}else t=v.join(") Tj\nT* (")}var E;return E=V((y-n)*p),J("BT\n/"+d+" "+A+" Tf\n"+A*S+" TL\n"+h+_+"\n"+s+V(e*p)+" "+E+" "+c+"\n("+t+") Tj\nET"),this},H.lstext=function(t,e,n,r){console.warn("jsPDF.lstext is deprecated");for(var i=0,o=t.length;i<o;i++,e+=r)this.text(t[i],e,n);return this},H.line=function(t,e,n,r){return this.lines([[n-t,r-e]],t,e)},H.clip=function(){J("W"),J("S")},H.clip_fixed=function(t){J("evenodd"===t?"W*":"W"),J("n")},H.lines=function(t,e,n,r,i,o){var a,s,c,l,u,h,f,d,g,w,v;for("number"==typeof t&&(m=n,n=e,e=t,t=m),r=r||[1,1],J(G(e*p)+" "+G((y-n)*p)+" m "),a=r[0],s=r[1],l=t.length,w=e,v=n,c=0;c<l;c++)2===(u=t[c]).length?(w=u[0]*a+w,v=u[1]*s+v,J(G(w*p)+" "+G((y-v)*p)+" l")):(h=u[0]*a+w,f=u[1]*s+v,d=u[2]*a+w,g=u[3]*s+v,w=u[4]*a+w,v=u[5]*s+v,J(G(h*p)+" "+G((y-f)*p)+" "+G(d*p)+" "+G((y-g)*p)+" "+G(w*p)+" "+G((y-v)*p)+" c"));return o&&J(" h"),null!==i&&J(yt(i)),this},H.rect=function(t,e,n,r,i){yt(i);return J([V(t*p),V((y-e)*p),V(n*p),V(-r*p),"re"].join(" ")),null!==i&&J(yt(i)),this},H.triangle=function(t,e,n,r,i,o,a){return this.lines([[n-t,r-e],[i-n,o-r],[t-i,e-o]],t,e,[1,1],a,!0),this},H.roundedRect=function(t,e,n,r,i,o,a){var s=4/3*(Math.SQRT2-1);return this.lines([[n-2*i,0],[i*s,0,i,o-o*s,i,o],[0,r-2*o],[0,o*s,-i*s,o,-i,o],[2*i-n,0],[-i*s,0,-i,-o*s,-i,-o],[0,2*o-r],[0,-o*s,i*s,-o,i,-o]],t+i,e,[1,1],a),this},H.ellipse=function(t,e,n,r,i){var o=4/3*(Math.SQRT2-1)*n,a=4/3*(Math.SQRT2-1)*r;return J([V((t+n)*p),V((y-e)*p),"m",V((t+n)*p),V((y-(e-a))*p),V((t+o)*p),V((y-(e-r))*p),V(t*p),V((y-(e-r))*p),"c"].join(" ")),J([V((t-o)*p),V((y-(e-r))*p),V((t-n)*p),V((y-(e-a))*p),V((t-n)*p),V((y-e)*p),"c"].join(" ")),J([V((t-n)*p),V((y-(e+a))*p),V((t-o)*p),V((y-(e+r))*p),V(t*p),V((y-(e+r))*p),"c"].join(" ")),J([V((t+o)*p),V((y-(e+r))*p),V((t+n)*p),V((y-(e+a))*p),V((t+n)*p),V((y-e)*p),"c"].join(" ")),null!==i&&J(yt(i)),this},H.circle=function(t,e,n,r){return this.ellipse(t,e,n,n,r)},H.setProperties=function(t){for(var e in U)U.hasOwnProperty(e)&&t[e]&&(U[e]=t[e]);return this},H.setFontSize=function(t){return A=t,this},H.setFont=function(t,e){return d=gt(t,e),this},H.setFontStyle=H.setFontType=function(t){return d=gt(void 0,t),this},H.getFontList=function(){var t,e,n,r={};for(t in O)if(O.hasOwnProperty(t)){r[t]=n=[];for(e in O[t])O[t].hasOwnProperty(e)&&n.push(e)}return r},H.addFont=function(t,e,n){at(t,e,n,"StandardEncoding")},H.setLineWidth=function(t){return J((t*p).toFixed(2)+" w"),this},H.setDrawColor=function(t,e,n,r){var i;return i=void 0===e||void 0===r&&t===e===n?"string"==typeof t?t+" G":V(t/255)+" G":void 0===r?"string"==typeof t?[t,e,n,"RG"].join(" "):[V(t/255),V(e/255),V(n/255),"RG"].join(" "):"string"==typeof t?[t,e,n,r,"K"].join(" "):[V(t),V(e),V(n),V(r),"K"].join(" "),J(i),this},H.setFillColor=function(e,n,r,i){var o;return void 0===n||void 0===i&&e===n===r?o="string"==typeof e?e+" g":V(e/255)+" g":void 0===i||"object"===(void 0===i?"undefined":t(i))?(o="string"==typeof e?[e,n,r,"rg"].join(" "):[V(e/255),V(n/255),V(r/255),"rg"].join(" "),i&&0===i.a&&(o=["255","255","255","rg"].join(" "))):o="string"==typeof e?[e,n,r,i,"k"].join(" "):[V(e),V(n),V(r),V(i),"k"].join(" "),J(o),this},H.setTextColor=function(t,e,n){if("string"==typeof t&&/^#[0-9A-Fa-f]{6}$/.test(t)){var r=parseInt(t.substr(1),16);t=r>>16&255,e=r>>8&255,n=255&r}return _=0===t&&0===e&&0===n||void 0===e?G(t/255)+" g":[G(t/255),G(e/255),G(n/255),"rg"].join(" "),this},H.CapJoinStyles={0:0,butt:0,but:0,miter:0,1:1,round:1,rounded:1,circle:1,2:2,projecting:2,project:2,square:2,bevel:2},H.setLineCap=function(t){var e=this.CapJoinStyles[t];if(void 0===e)throw new Error("Line cap style of '"+t+"' is not recognized. See or extend .CapJoinStyles property for valid styles");return N=e,J(e+" J"),this},H.setLineJoin=function(t){var e=this.CapJoinStyles[t];if(void 0===e)throw new Error("Line join style of '"+t+"' is not recognized. See or extend .CapJoinStyles property for valid styles");return L=e,J(e+" j"),this},H.output=xt,H.save=function(t){H.output("save",t)};for(var _t in i.API)i.API.hasOwnProperty(_t)&&("events"===_t&&i.API.events.length?function(t,e){var n,r,i;for(i=e.length-1;-1!==i;i--)n=e[i][0],r=e[i][1],t.subscribe.apply(t,[n].concat("function"==typeof r?[r]:r))}(W,i.API.events):H[_t]=i.API[_t]);return function(){for(var t=[["Helvetica","helvetica","normal"],["Helvetica-Bold","helvetica","bold"],["Helvetica-Oblique","helvetica","italic"],["Helvetica-BoldOblique","helvetica","bolditalic"],["Courier","courier","normal"],["Courier-Bold","courier","bold"],["Courier-Oblique","courier","italic"],["Courier-BoldOblique","courier","bolditalic"],["Times-Roman","times","normal"],["Times-Bold","times","bold"],["Times-Italic","times","italic"],["Times-BoldItalic","times","bolditalic"],["ZapfDingbats","zapfdingbats"]],e=0,n=t.length;e<n;e++){var r=at(t[e][0],t[e][1],t[e][2],"StandardEncoding"),i=t[e][0].split("-");ot(r,i[0],i[1]||"")}W.publish("addFonts",{fonts:E,dictionary:O})}(),d="F1",dt(u,c),W.publish("initialized"),H}var a="1.3",s={a0:[2383.94,3370.39],a1:[1683.78,2383.94],a2:[1190.55,1683.78],a3:[841.89,1190.55],a4:[595.28,841.89],a5:[419.53,595.28],a6:[297.64,419.53],a7:[209.76,297.64],a8:[147.4,209.76],a9:[104.88,147.4],a10:[73.7,104.88],b0:[2834.65,4008.19],b1:[2004.09,2834.65],b2:[1417.32,2004.09],b3:[1000.63,1417.32],b4:[708.66,1000.63],b5:[498.9,708.66],b6:[354.33,498.9],b7:[249.45,354.33],b8:[175.75,249.45],b9:[124.72,175.75],b10:[87.87,124.72],c0:[2599.37,3676.54],c1:[1836.85,2599.37],c2:[1298.27,1836.85],c3:[918.43,1298.27],c4:[649.13,918.43],c5:[459.21,649.13],c6:[323.15,459.21],c7:[229.61,323.15],c8:[161.57,229.61],c9:[113.39,161.57],c10:[79.37,113.39],dl:[311.81,623.62],letter:[612,792],"government-letter":[576,756],legal:[612,1008],"junior-legal":[576,360],ledger:[1224,792],tabloid:[792,1224],"credit-card":[153,243]};return i.API={events:[]},i.version="1.x-master","function"==typeof define&&define.amd?define("jsPDF",function(){return i}):"undefined"!=typeof module&&module.exports?module.exports=i:e.jsPDF=i,i}("undefined"!=typeof self&&self||"undefined"!=typeof window&&window||void 0));/**
  * jsPDF AcroForm Plugin
@@ -8784,7 +12201,7 @@ function(t){var e;e=function(){function e(t){var e,n,r,i,o,a,s,c,l,u,h,f,d,p,m;f
  */
 var a=function(){function t(){this.pos=0,this.bufferLength=0,this.eof=!1,this.buffer=null}return t.prototype={ensureBuffer:function(t){var e=this.buffer,n=e?e.byteLength:0;if(t<n)return e;for(var r=512;r<t;)r<<=1;for(var i=new Uint8Array(r),o=0;o<n;++o)i[o]=e[o];return this.buffer=i},getByte:function(){for(var t=this.pos;this.bufferLength<=t;){if(this.eof)return null;this.readBlock()}return this.buffer[this.pos++]},getBytes:function(t){var e=this.pos;if(t){this.ensureBuffer(e+t);for(r=e+t;!this.eof&&this.bufferLength<r;)this.readBlock();var n=this.bufferLength;r>n&&(r=n)}else{for(;!this.eof;)this.readBlock();var r=this.bufferLength}return this.pos=r,this.buffer.subarray(e,r)},lookChar:function(){for(var t=this.pos;this.bufferLength<=t;){if(this.eof)return null;this.readBlock()}return String.fromCharCode(this.buffer[this.pos])},getChar:function(){for(var t=this.pos;this.bufferLength<=t;){if(this.eof)return null;this.readBlock()}return String.fromCharCode(this.buffer[this.pos++])},makeSubStream:function(t,e,n){for(var r=t+e;this.bufferLength<=r&&!this.eof;)this.readBlock();return new Stream(this.buffer,t,e,n)},skip:function(t){t||(t=1),this.pos+=t},reset:function(){this.pos=0}},t}(),s=function(){function t(t){throw new Error(t)}function e(e){var n=0,r=e[n++],i=e[n++];-1!=r&&-1!=i||t("Invalid header in flate stream"),8!=(15&r)&&t("Unknown compression method in flate stream"),((r<<8)+i)%31!=0&&t("Bad FCHECK in flate stream"),32&i&&t("FDICT bit set in flate stream"),this.bytes=e,this.bytesPos=n,this.codeSize=0,this.codeBuf=0,a.call(this)}if("undefined"!=typeof Uint32Array){var n=new Uint32Array([16,17,18,0,8,7,9,6,10,5,11,4,12,3,13,2,14,1,15]),r=new Uint32Array([3,4,5,6,7,8,9,10,65547,65549,65551,65553,131091,131095,131099,131103,196643,196651,196659,196667,262211,262227,262243,262259,327811,327843,327875,327907,258,258,258]),i=new Uint32Array([1,2,3,4,65541,65543,131081,131085,196625,196633,262177,262193,327745,327777,393345,393409,459009,459137,524801,525057,590849,591361,657409,658433,724993,727041,794625,798721,868353,876545]),o=[new Uint32Array([459008,524368,524304,524568,459024,524400,524336,590016,459016,524384,524320,589984,524288,524416,524352,590048,459012,524376,524312,589968,459028,524408,524344,590032,459020,524392,524328,59e4,524296,524424,524360,590064,459010,524372,524308,524572,459026,524404,524340,590024,459018,524388,524324,589992,524292,524420,524356,590056,459014,524380,524316,589976,459030,524412,524348,590040,459022,524396,524332,590008,524300,524428,524364,590072,459009,524370,524306,524570,459025,524402,524338,590020,459017,524386,524322,589988,524290,524418,524354,590052,459013,524378,524314,589972,459029,524410,524346,590036,459021,524394,524330,590004,524298,524426,524362,590068,459011,524374,524310,524574,459027,524406,524342,590028,459019,524390,524326,589996,524294,524422,524358,590060,459015,524382,524318,589980,459031,524414,524350,590044,459023,524398,524334,590012,524302,524430,524366,590076,459008,524369,524305,524569,459024,524401,524337,590018,459016,524385,524321,589986,524289,524417,524353,590050,459012,524377,524313,589970,459028,524409,524345,590034,459020,524393,524329,590002,524297,524425,524361,590066,459010,524373,524309,524573,459026,524405,524341,590026,459018,524389,524325,589994,524293,524421,524357,590058,459014,524381,524317,589978,459030,524413,524349,590042,459022,524397,524333,590010,524301,524429,524365,590074,459009,524371,524307,524571,459025,524403,524339,590022,459017,524387,524323,589990,524291,524419,524355,590054,459013,524379,524315,589974,459029,524411,524347,590038,459021,524395,524331,590006,524299,524427,524363,590070,459011,524375,524311,524575,459027,524407,524343,590030,459019,524391,524327,589998,524295,524423,524359,590062,459015,524383,524319,589982,459031,524415,524351,590046,459023,524399,524335,590014,524303,524431,524367,590078,459008,524368,524304,524568,459024,524400,524336,590017,459016,524384,524320,589985,524288,524416,524352,590049,459012,524376,524312,589969,459028,524408,524344,590033,459020,524392,524328,590001,524296,524424,524360,590065,459010,524372,524308,524572,459026,524404,524340,590025,459018,524388,524324,589993,524292,524420,524356,590057,459014,524380,524316,589977,459030,524412,524348,590041,459022,524396,524332,590009,524300,524428,524364,590073,459009,524370,524306,524570,459025,524402,524338,590021,459017,524386,524322,589989,524290,524418,524354,590053,459013,524378,524314,589973,459029,524410,524346,590037,459021,524394,524330,590005,524298,524426,524362,590069,459011,524374,524310,524574,459027,524406,524342,590029,459019,524390,524326,589997,524294,524422,524358,590061,459015,524382,524318,589981,459031,524414,524350,590045,459023,524398,524334,590013,524302,524430,524366,590077,459008,524369,524305,524569,459024,524401,524337,590019,459016,524385,524321,589987,524289,524417,524353,590051,459012,524377,524313,589971,459028,524409,524345,590035,459020,524393,524329,590003,524297,524425,524361,590067,459010,524373,524309,524573,459026,524405,524341,590027,459018,524389,524325,589995,524293,524421,524357,590059,459014,524381,524317,589979,459030,524413,524349,590043,459022,524397,524333,590011,524301,524429,524365,590075,459009,524371,524307,524571,459025,524403,524339,590023,459017,524387,524323,589991,524291,524419,524355,590055,459013,524379,524315,589975,459029,524411,524347,590039,459021,524395,524331,590007,524299,524427,524363,590071,459011,524375,524311,524575,459027,524407,524343,590031,459019,524391,524327,589999,524295,524423,524359,590063,459015,524383,524319,589983,459031,524415,524351,590047,459023,524399,524335,590015,524303,524431,524367,590079]),9],s=[new Uint32Array([327680,327696,327688,327704,327684,327700,327692,327708,327682,327698,327690,327706,327686,327702,327694,0,327681,327697,327689,327705,327685,327701,327693,327709,327683,327699,327691,327707,327687,327703,327695,0]),5];return e.prototype=Object.create(a.prototype),e.prototype.getBits=function(e){for(var n,r=this.codeSize,i=this.codeBuf,o=this.bytes,a=this.bytesPos;r<e;)void 0===(n=o[a++])&&t("Bad encoding in flate stream"),i|=n<<r,r+=8;return n=i&(1<<e)-1,this.codeBuf=i>>e,this.codeSize=r-=e,this.bytesPos=a,n},e.prototype.getCode=function(e){for(var n=e[0],r=e[1],i=this.codeSize,o=this.codeBuf,a=this.bytes,s=this.bytesPos;i<r;){var c;void 0===(c=a[s++])&&t("Bad encoding in flate stream"),o|=c<<i,i+=8}var l=n[o&(1<<r)-1],u=l>>16,h=65535&l;return(0==i||i<u||0==u)&&t("Bad encoding in flate stream"),this.codeBuf=o>>u,this.codeSize=i-u,this.bytesPos=s,h},e.prototype.generateHuffmanTable=function(t){for(var e=t.length,n=0,r=0;r<e;++r)t[r]>n&&(n=t[r]);for(var i=1<<n,o=new Uint32Array(i),a=1,s=0,c=2;a<=n;++a,s<<=1,c<<=1)for(var l=0;l<e;++l)if(t[l]==a){for(var u=0,h=s,r=0;r<a;++r)u=u<<1|1&h,h>>=1;for(r=u;r<i;r+=c)o[r]=a<<16|l;++s}return[o,n]},e.prototype.readBlock=function(){function e(t,e,n,r,i){for(var o=t.getBits(n)+r;o-- >0;)e[p++]=i}var a=this.getBits(3);if(1&a&&(this.eof=!0),0!=(a>>=1)){var c,l;if(1==a)c=o,l=s;else if(2==a){for(var u=this.getBits(5)+257,h=this.getBits(5)+1,f=this.getBits(4)+4,d=Array(n.length),p=0;p<f;)d[n[p++]]=this.getBits(3);for(var m=this.generateHuffmanTable(d),g=0,p=0,w=u+h,y=new Array(w);p<w;){var v=this.getCode(m);16==v?e(this,y,2,3,g):17==v?e(this,y,3,3,g=0):18==v?e(this,y,7,11,g=0):y[p++]=g=v}c=this.generateHuffmanTable(y.slice(0,u)),l=this.generateHuffmanTable(y.slice(u,w))}else t("Unknown block type in flate stream");for(var b=(O=this.buffer)?O.length:0,x=this.bufferLength;;){var k=this.getCode(c);if(k<256)x+1>=b&&(b=(O=this.ensureBuffer(x+1)).length),O[x++]=k;else{if(256==k)return void(this.bufferLength=x);var _=(k=r[k-=257])>>16;_>0&&(_=this.getBits(_));g=(65535&k)+_;k=this.getCode(l),(_=(k=i[k])>>16)>0&&(_=this.getBits(_));var C=(65535&k)+_;x+g>=b&&(b=(O=this.ensureBuffer(x+g)).length);for(var A=0;A<g;++A,++x)O[x]=O[x-C]}}}else{var S,q=this.bytes,T=this.bytesPos;void 0===(S=q[T++])&&t("Bad block header in flate stream");var P=S;void 0===(S=q[T++])&&t("Bad block header in flate stream"),P|=S<<8,void 0===(S=q[T++])&&t("Bad block header in flate stream");var I=S;void 0===(S=q[T++])&&t("Bad block header in flate stream"),(I|=S<<8)!=(65535&~P)&&t("Bad uncompressed block length in flate stream"),this.codeBuf=0,this.codeSize=0;var E=this.bufferLength,O=this.ensureBuffer(E+P),F=E+P;this.bufferLength=F;for(var B=E;B<F;++B){if(void 0===(S=q[T++])){this.eof=!0;break}O[B]=S}this.bytesPos=T}},e}}();return function(t){var e="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=";void 0===t.btoa&&(t.btoa=function(t){var n,r,i,o,a,s=0,c=0,l="",u=[];if(!t)return t;do{n=(a=t.charCodeAt(s++)<<16|t.charCodeAt(s++)<<8|t.charCodeAt(s++))>>18&63,r=a>>12&63,i=a>>6&63,o=63&a,u[c++]=e.charAt(n)+e.charAt(r)+e.charAt(i)+e.charAt(o)}while(s<t.length);l=u.join("");var h=t.length%3;return(h?l.slice(0,h-3):l)+"===".slice(h||3)}),void 0===t.atob&&(t.atob=function(t){var n,r,i,o,a,s,c=0,l=0,u=[];if(!t)return t;t+="";do{n=(s=e.indexOf(t.charAt(c++))<<18|e.indexOf(t.charAt(c++))<<12|(o=e.indexOf(t.charAt(c++)))<<6|(a=e.indexOf(t.charAt(c++))))>>16&255,r=s>>8&255,i=255&s,u[l++]=64==o?String.fromCharCode(n):64==a?String.fromCharCode(n,r):String.fromCharCode(n,r,i)}while(c<t.length);return u.join("")}),Array.prototype.map||(Array.prototype.map=function(t){if(void 0===this||null===this||"function"!=typeof t)throw new TypeError;for(var e=Object(this),n=e.length>>>0,r=new Array(n),i=arguments.length>1?arguments[1]:void 0,o=0;o<n;o++)o in e&&(r[o]=t.call(i,e[o],o,e));return r}),Array.isArray||(Array.isArray=function(t){return"[object Array]"===Object.prototype.toString.call(t)}),Array.prototype.forEach||(Array.prototype.forEach=function(t,e){if(void 0===this||null===this||"function"!=typeof t)throw new TypeError;for(var n=Object(this),r=n.length>>>0,i=0;i<r;i++)i in n&&t.call(e,n[i],i,n)}),Object.keys||(Object.keys=function(){var t=Object.prototype.hasOwnProperty,e=!{toString:null}.propertyIsEnumerable("toString"),n=["toString","toLocaleString","valueOf","hasOwnProperty","isPrototypeOf","propertyIsEnumerable","constructor"],r=n.length;return function(i){if("object"!=typeof i&&("function"!=typeof i||null===i))throw new TypeError;var o,a,s=[];for(o in i)t.call(i,o)&&s.push(o);if(e)for(a=0;a<r;a++)t.call(i,n[a])&&s.push(n[a]);return s}}()),String.prototype.trim||(String.prototype.trim=function(){return this.replace(/^\s+|\s+$/g,"")}),String.prototype.trimLeft||(String.prototype.trimLeft=function(){return this.replace(/^\s+/g,"")}),String.prototype.trimRight||(String.prototype.trimRight=function(){return this.replace(/\s+$/g,"")})}("undefined"!=typeof self&&self||"undefined"!=typeof window&&window||void 0),e});
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],68:[function(require,module,exports){
+},{}],71:[function(require,module,exports){
 (function (global){
 'use strict';(function (f) {
     if (typeof exports === 'object' && typeof module !== 'undefined') {
@@ -33765,7 +37182,7 @@ var a=function(){function t(){this.pos=0,this.bufferLength=0,this.eof=!1,this.bu
     }, {}, [73])(73);
 }));
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],69:[function(require,module,exports){
+},{}],72:[function(require,module,exports){
 // shim for using process in browser
 var process = module.exports = {};
 
@@ -33951,4 +37368,631 @@ process.chdir = function (dir) {
 };
 process.umask = function() { return 0; };
 
+},{}],73:[function(require,module,exports){
+/*
+	Based on rgbcolor.js by Stoyan Stefanov <sstoo@gmail.com>
+	http://www.phpied.com/rgb-color-parser-in-javascript/
+*/
+
+module.exports = function(color_string) {
+    this.ok = false;
+    this.alpha = 1.0;
+
+    // strip any leading #
+    if (color_string.charAt(0) == '#') { // remove # if any
+        color_string = color_string.substr(1,6);
+    }
+
+    color_string = color_string.replace(/ /g,'');
+    color_string = color_string.toLowerCase();
+
+    // before getting into regexps, try simple matches
+    // and overwrite the input
+    var simple_colors = {
+        aliceblue: 'f0f8ff',
+        antiquewhite: 'faebd7',
+        aqua: '00ffff',
+        aquamarine: '7fffd4',
+        azure: 'f0ffff',
+        beige: 'f5f5dc',
+        bisque: 'ffe4c4',
+        black: '000000',
+        blanchedalmond: 'ffebcd',
+        blue: '0000ff',
+        blueviolet: '8a2be2',
+        brown: 'a52a2a',
+        burlywood: 'deb887',
+        cadetblue: '5f9ea0',
+        chartreuse: '7fff00',
+        chocolate: 'd2691e',
+        coral: 'ff7f50',
+        cornflowerblue: '6495ed',
+        cornsilk: 'fff8dc',
+        crimson: 'dc143c',
+        cyan: '00ffff',
+        darkblue: '00008b',
+        darkcyan: '008b8b',
+        darkgoldenrod: 'b8860b',
+        darkgray: 'a9a9a9',
+        darkgreen: '006400',
+        darkkhaki: 'bdb76b',
+        darkmagenta: '8b008b',
+        darkolivegreen: '556b2f',
+        darkorange: 'ff8c00',
+        darkorchid: '9932cc',
+        darkred: '8b0000',
+        darksalmon: 'e9967a',
+        darkseagreen: '8fbc8f',
+        darkslateblue: '483d8b',
+        darkslategray: '2f4f4f',
+        darkturquoise: '00ced1',
+        darkviolet: '9400d3',
+        deeppink: 'ff1493',
+        deepskyblue: '00bfff',
+        dimgray: '696969',
+        dodgerblue: '1e90ff',
+        feldspar: 'd19275',
+        firebrick: 'b22222',
+        floralwhite: 'fffaf0',
+        forestgreen: '228b22',
+        fuchsia: 'ff00ff',
+        gainsboro: 'dcdcdc',
+        ghostwhite: 'f8f8ff',
+        gold: 'ffd700',
+        goldenrod: 'daa520',
+        gray: '808080',
+        green: '008000',
+        greenyellow: 'adff2f',
+        honeydew: 'f0fff0',
+        hotpink: 'ff69b4',
+        indianred : 'cd5c5c',
+        indigo : '4b0082',
+        ivory: 'fffff0',
+        khaki: 'f0e68c',
+        lavender: 'e6e6fa',
+        lavenderblush: 'fff0f5',
+        lawngreen: '7cfc00',
+        lemonchiffon: 'fffacd',
+        lightblue: 'add8e6',
+        lightcoral: 'f08080',
+        lightcyan: 'e0ffff',
+        lightgoldenrodyellow: 'fafad2',
+        lightgrey: 'd3d3d3',
+        lightgreen: '90ee90',
+        lightpink: 'ffb6c1',
+        lightsalmon: 'ffa07a',
+        lightseagreen: '20b2aa',
+        lightskyblue: '87cefa',
+        lightslateblue: '8470ff',
+        lightslategray: '778899',
+        lightsteelblue: 'b0c4de',
+        lightyellow: 'ffffe0',
+        lime: '00ff00',
+        limegreen: '32cd32',
+        linen: 'faf0e6',
+        magenta: 'ff00ff',
+        maroon: '800000',
+        mediumaquamarine: '66cdaa',
+        mediumblue: '0000cd',
+        mediumorchid: 'ba55d3',
+        mediumpurple: '9370d8',
+        mediumseagreen: '3cb371',
+        mediumslateblue: '7b68ee',
+        mediumspringgreen: '00fa9a',
+        mediumturquoise: '48d1cc',
+        mediumvioletred: 'c71585',
+        midnightblue: '191970',
+        mintcream: 'f5fffa',
+        mistyrose: 'ffe4e1',
+        moccasin: 'ffe4b5',
+        navajowhite: 'ffdead',
+        navy: '000080',
+        oldlace: 'fdf5e6',
+        olive: '808000',
+        olivedrab: '6b8e23',
+        orange: 'ffa500',
+        orangered: 'ff4500',
+        orchid: 'da70d6',
+        palegoldenrod: 'eee8aa',
+        palegreen: '98fb98',
+        paleturquoise: 'afeeee',
+        palevioletred: 'd87093',
+        papayawhip: 'ffefd5',
+        peachpuff: 'ffdab9',
+        peru: 'cd853f',
+        pink: 'ffc0cb',
+        plum: 'dda0dd',
+        powderblue: 'b0e0e6',
+        purple: '800080',
+        red: 'ff0000',
+        rosybrown: 'bc8f8f',
+        royalblue: '4169e1',
+        saddlebrown: '8b4513',
+        salmon: 'fa8072',
+        sandybrown: 'f4a460',
+        seagreen: '2e8b57',
+        seashell: 'fff5ee',
+        sienna: 'a0522d',
+        silver: 'c0c0c0',
+        skyblue: '87ceeb',
+        slateblue: '6a5acd',
+        slategray: '708090',
+        snow: 'fffafa',
+        springgreen: '00ff7f',
+        steelblue: '4682b4',
+        tan: 'd2b48c',
+        teal: '008080',
+        thistle: 'd8bfd8',
+        tomato: 'ff6347',
+        turquoise: '40e0d0',
+        violet: 'ee82ee',
+        violetred: 'd02090',
+        wheat: 'f5deb3',
+        white: 'ffffff',
+        whitesmoke: 'f5f5f5',
+        yellow: 'ffff00',
+        yellowgreen: '9acd32'
+    };
+    color_string = simple_colors[color_string] || color_string;
+    // emd of simple type-in colors
+
+    // array of color definition objects
+    var color_defs = [
+        {
+            re: /^rgba\((\d{1,3}),\s*(\d{1,3}),\s*(\d{1,3}),\s*((?:\d?\.)?\d)\)$/,
+            example: ['rgba(123, 234, 45, 0.8)', 'rgba(255,234,245,1.0)'],
+            process: function (bits){
+                return [
+                    parseInt(bits[1]),
+                    parseInt(bits[2]),
+                    parseInt(bits[3]),
+                    parseFloat(bits[4])
+                ];
+            }
+        },
+        {
+            re: /^rgb\((\d{1,3}),\s*(\d{1,3}),\s*(\d{1,3})\)$/,
+            example: ['rgb(123, 234, 45)', 'rgb(255,234,245)'],
+            process: function (bits){
+                return [
+                    parseInt(bits[1]),
+                    parseInt(bits[2]),
+                    parseInt(bits[3])
+                ];
+            }
+        },
+        {
+            re: /^(\w{2})(\w{2})(\w{2})$/,
+            example: ['#00ff00', '336699'],
+            process: function (bits){
+                return [
+                    parseInt(bits[1], 16),
+                    parseInt(bits[2], 16),
+                    parseInt(bits[3], 16)
+                ];
+            }
+        },
+        {
+            re: /^(\w{1})(\w{1})(\w{1})$/,
+            example: ['#fb0', 'f0f'],
+            process: function (bits){
+                return [
+                    parseInt(bits[1] + bits[1], 16),
+                    parseInt(bits[2] + bits[2], 16),
+                    parseInt(bits[3] + bits[3], 16)
+                ];
+            }
+        }
+    ];
+
+    // search through the definitions to find a match
+    for (var i = 0; i < color_defs.length; i++) {
+        var re = color_defs[i].re;
+        var processor = color_defs[i].process;
+        var bits = re.exec(color_string);
+        if (bits) {
+            var channels = processor(bits);
+            this.r = channels[0];
+            this.g = channels[1];
+            this.b = channels[2];
+            if (channels.length > 3) {
+                this.alpha = channels[3];
+            }
+            this.ok = true;
+        }
+
+    }
+
+    // validate/cleanup values
+    this.r = (this.r < 0 || isNaN(this.r)) ? 0 : ((this.r > 255) ? 255 : this.r);
+    this.g = (this.g < 0 || isNaN(this.g)) ? 0 : ((this.g > 255) ? 255 : this.g);
+    this.b = (this.b < 0 || isNaN(this.b)) ? 0 : ((this.b > 255) ? 255 : this.b);
+    this.alpha = (this.alpha < 0) ? 0 : ((this.alpha > 1.0 || isNaN(this.alpha)) ? 1.0 : this.alpha);
+
+    // some getters
+    this.toRGB = function () {
+        return 'rgb(' + this.r + ', ' + this.g + ', ' + this.b + ')';
+    }
+    this.toRGBA = function () {
+        return 'rgba(' + this.r + ', ' + this.g + ', ' + this.b + ', ' + this.alpha + ')';
+    }
+    this.toHex = function () {
+        var r = this.r.toString(16);
+        var g = this.g.toString(16);
+        var b = this.b.toString(16);
+        if (r.length == 1) r = '0' + r;
+        if (g.length == 1) g = '0' + g;
+        if (b.length == 1) b = '0' + b;
+        return '#' + r + g + b;
+    }
+
+    // help
+    this.getHelpXML = function () {
+
+        var examples = new Array();
+        // add regexps
+        for (var i = 0; i < color_defs.length; i++) {
+            var example = color_defs[i].example;
+            for (var j = 0; j < example.length; j++) {
+                examples[examples.length] = example[j];
+            }
+        }
+        // add type-in colors
+        for (var sc in simple_colors) {
+            examples[examples.length] = sc;
+        }
+
+        var xml = document.createElement('ul');
+        xml.setAttribute('id', 'rgbcolor-examples');
+        for (var i = 0; i < examples.length; i++) {
+            try {
+                var list_item = document.createElement('li');
+                var list_color = new RGBColor(examples[i]);
+                var example_div = document.createElement('div');
+                example_div.style.cssText =
+                        'margin: 3px; '
+                        + 'border: 1px solid black; '
+                        + 'background:' + list_color.toHex() + '; '
+                        + 'color:' + list_color.toHex()
+                ;
+                example_div.appendChild(document.createTextNode('test'));
+                var list_item_value = document.createTextNode(
+                    ' ' + examples[i] + ' -> ' + list_color.toRGB() + ' -> ' + list_color.toHex()
+                );
+                list_item.appendChild(example_div);
+                list_item.appendChild(list_item_value);
+                xml.appendChild(list_item);
+
+            } catch(e){}
+        }
+        return xml;
+
+    }
+
+}
+
+},{}],74:[function(require,module,exports){
+/*
+
+StackBlur - a fast almost Gaussian Blur For Canvas
+
+Version: 	0.5
+Author:		Mario Klingemann
+Contact: 	mario@quasimondo.com
+Website:	http://www.quasimondo.com/StackBlurForCanvas
+Twitter:	@quasimondo
+
+In case you find this class useful - especially in commercial projects -
+I am not totally unhappy for a small donation to my PayPal account
+mario@quasimondo.de
+
+Or support me on flattr: 
+https://flattr.com/thing/72791/StackBlur-a-fast-almost-Gaussian-Blur-Effect-for-CanvasJavascript
+
+Copyright (c) 2010 Mario Klingemann
+
+Permission is hereby granted, free of charge, to any person
+obtaining a copy of this software and associated documentation
+files (the "Software"), to deal in the Software without
+restriction, including without limitation the rights to use,
+copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the
+Software is furnished to do so, subject to the following
+conditions:
+
+The above copyright notice and this permission notice shall be
+included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+OTHER DEALINGS IN THE SOFTWARE.
+*/
+
+var mul_table = [
+        512,512,456,512,328,456,335,512,405,328,271,456,388,335,292,512,
+        454,405,364,328,298,271,496,456,420,388,360,335,312,292,273,512,
+        482,454,428,405,383,364,345,328,312,298,284,271,259,496,475,456,
+        437,420,404,388,374,360,347,335,323,312,302,292,282,273,265,512,
+        497,482,468,454,441,428,417,405,394,383,373,364,354,345,337,328,
+        320,312,305,298,291,284,278,271,265,259,507,496,485,475,465,456,
+        446,437,428,420,412,404,396,388,381,374,367,360,354,347,341,335,
+        329,323,318,312,307,302,297,292,287,282,278,273,269,265,261,512,
+        505,497,489,482,475,468,461,454,447,441,435,428,422,417,411,405,
+        399,394,389,383,378,373,368,364,359,354,350,345,341,337,332,328,
+        324,320,316,312,309,305,301,298,294,291,287,284,281,278,274,271,
+        268,265,262,259,257,507,501,496,491,485,480,475,470,465,460,456,
+        451,446,442,437,433,428,424,420,416,412,408,404,400,396,392,388,
+        385,381,377,374,370,367,363,360,357,354,350,347,344,341,338,335,
+        332,329,326,323,320,318,315,312,310,307,304,302,299,297,294,292,
+        289,287,285,282,280,278,275,273,271,269,267,265,263,261,259];
+        
+   
+var shg_table = [
+	     9, 11, 12, 13, 13, 14, 14, 15, 15, 15, 15, 16, 16, 16, 16, 17, 
+		17, 17, 17, 17, 17, 17, 18, 18, 18, 18, 18, 18, 18, 18, 18, 19, 
+		19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 19, 20, 20, 20,
+		20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 21,
+		21, 21, 21, 21, 21, 21, 21, 21, 21, 21, 21, 21, 21, 21, 21, 21,
+		21, 21, 21, 21, 21, 21, 21, 21, 21, 21, 22, 22, 22, 22, 22, 22, 
+		22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22,
+		22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 22, 23, 
+		23, 23, 23, 23, 23, 23, 23, 23, 23, 23, 23, 23, 23, 23, 23, 23,
+		23, 23, 23, 23, 23, 23, 23, 23, 23, 23, 23, 23, 23, 23, 23, 23,
+		23, 23, 23, 23, 23, 23, 23, 23, 23, 23, 23, 23, 23, 23, 23, 23, 
+		23, 23, 23, 23, 23, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 
+		24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24,
+		24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24,
+		24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24,
+		24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24 ];
+
+function blur( pixels, width, height, radius )
+{
+	if ( isNaN(radius) || radius < 1 ) return;
+	radius |= 0;
+
+	var x, y, i, p, yp, yi, yw, r_sum, g_sum, b_sum, a_sum, 
+	r_out_sum, g_out_sum, b_out_sum, a_out_sum,
+	r_in_sum, g_in_sum, b_in_sum, a_in_sum, 
+	pr, pg, pb, pa, rbs;
+			
+	var div = radius + radius + 1;
+	var w4 = width << 2;
+	var widthMinus1  = width - 1;
+	var heightMinus1 = height - 1;
+	var radiusPlus1  = radius + 1;
+	var sumFactor = radiusPlus1 * ( radiusPlus1 + 1 ) / 2;
+	
+	var stackStart = new BlurStack();
+	var stack = stackStart;
+	for ( i = 1; i < div; i++ )
+	{
+		stack = stack.next = new BlurStack();
+		if ( i == radiusPlus1 ) var stackEnd = stack;
+	}
+	stack.next = stackStart;
+	var stackIn = null;
+	var stackOut = null;
+	
+	yw = yi = 0;
+	
+	var mul_sum = mul_table[radius];
+	var shg_sum = shg_table[radius];
+	
+	for ( y = 0; y < height; y++ )
+	{
+		r_in_sum = g_in_sum = b_in_sum = a_in_sum = r_sum = g_sum = b_sum = a_sum = 0;
+		
+		r_out_sum = radiusPlus1 * ( pr = pixels[yi] );
+		g_out_sum = radiusPlus1 * ( pg = pixels[yi+1] );
+		b_out_sum = radiusPlus1 * ( pb = pixels[yi+2] );
+		a_out_sum = radiusPlus1 * ( pa = pixels[yi+3] );
+		
+		r_sum += sumFactor * pr;
+		g_sum += sumFactor * pg;
+		b_sum += sumFactor * pb;
+		a_sum += sumFactor * pa;
+		
+		stack = stackStart;
+		
+		for( i = 0; i < radiusPlus1; i++ )
+		{
+			stack.r = pr;
+			stack.g = pg;
+			stack.b = pb;
+			stack.a = pa;
+			stack = stack.next;
+		}
+		
+		for( i = 1; i < radiusPlus1; i++ )
+		{
+			p = yi + (( widthMinus1 < i ? widthMinus1 : i ) << 2 );
+			r_sum += ( stack.r = ( pr = pixels[p])) * ( rbs = radiusPlus1 - i );
+			g_sum += ( stack.g = ( pg = pixels[p+1])) * rbs;
+			b_sum += ( stack.b = ( pb = pixels[p+2])) * rbs;
+			a_sum += ( stack.a = ( pa = pixels[p+3])) * rbs;
+			
+			r_in_sum += pr;
+			g_in_sum += pg;
+			b_in_sum += pb;
+			a_in_sum += pa;
+			
+			stack = stack.next;
+		}
+		
+		
+		stackIn = stackStart;
+		stackOut = stackEnd;
+		for ( x = 0; x < width; x++ )
+		{
+			pixels[yi+3] = pa = (a_sum * mul_sum) >> shg_sum;
+			if ( pa != 0 )
+			{
+				pa = 255 / pa;
+				pixels[yi]   = ((r_sum * mul_sum) >> shg_sum) * pa;
+				pixels[yi+1] = ((g_sum * mul_sum) >> shg_sum) * pa;
+				pixels[yi+2] = ((b_sum * mul_sum) >> shg_sum) * pa;
+			} else {
+				pixels[yi] = pixels[yi+1] = pixels[yi+2] = 0;
+			}
+			
+			r_sum -= r_out_sum;
+			g_sum -= g_out_sum;
+			b_sum -= b_out_sum;
+			a_sum -= a_out_sum;
+			
+			r_out_sum -= stackIn.r;
+			g_out_sum -= stackIn.g;
+			b_out_sum -= stackIn.b;
+			a_out_sum -= stackIn.a;
+			
+			p =  ( yw + ( ( p = x + radius + 1 ) < widthMinus1 ? p : widthMinus1 ) ) << 2;
+			
+			r_in_sum += ( stackIn.r = pixels[p]);
+			g_in_sum += ( stackIn.g = pixels[p+1]);
+			b_in_sum += ( stackIn.b = pixels[p+2]);
+			a_in_sum += ( stackIn.a = pixels[p+3]);
+			
+			r_sum += r_in_sum;
+			g_sum += g_in_sum;
+			b_sum += b_in_sum;
+			a_sum += a_in_sum;
+			
+			stackIn = stackIn.next;
+			
+			r_out_sum += ( pr = stackOut.r );
+			g_out_sum += ( pg = stackOut.g );
+			b_out_sum += ( pb = stackOut.b );
+			a_out_sum += ( pa = stackOut.a );
+			
+			r_in_sum -= pr;
+			g_in_sum -= pg;
+			b_in_sum -= pb;
+			a_in_sum -= pa;
+			
+			stackOut = stackOut.next;
+
+			yi += 4;
+		}
+		yw += width;
+	}
+
+	
+	for ( x = 0; x < width; x++ )
+	{
+		g_in_sum = b_in_sum = a_in_sum = r_in_sum = g_sum = b_sum = a_sum = r_sum = 0;
+		
+		yi = x << 2;
+		r_out_sum = radiusPlus1 * ( pr = pixels[yi]);
+		g_out_sum = radiusPlus1 * ( pg = pixels[yi+1]);
+		b_out_sum = radiusPlus1 * ( pb = pixels[yi+2]);
+		a_out_sum = radiusPlus1 * ( pa = pixels[yi+3]);
+		
+		r_sum += sumFactor * pr;
+		g_sum += sumFactor * pg;
+		b_sum += sumFactor * pb;
+		a_sum += sumFactor * pa;
+		
+		stack = stackStart;
+		
+		for( i = 0; i < radiusPlus1; i++ )
+		{
+			stack.r = pr;
+			stack.g = pg;
+			stack.b = pb;
+			stack.a = pa;
+			stack = stack.next;
+		}
+		
+		yp = width;
+		
+		for( i = 1; i <= radius; i++ )
+		{
+			yi = ( yp + x ) << 2;
+			
+			r_sum += ( stack.r = ( pr = pixels[yi])) * ( rbs = radiusPlus1 - i );
+			g_sum += ( stack.g = ( pg = pixels[yi+1])) * rbs;
+			b_sum += ( stack.b = ( pb = pixels[yi+2])) * rbs;
+			a_sum += ( stack.a = ( pa = pixels[yi+3])) * rbs;
+		   
+			r_in_sum += pr;
+			g_in_sum += pg;
+			b_in_sum += pb;
+			a_in_sum += pa;
+			
+			stack = stack.next;
+		
+			if( i < heightMinus1 )
+			{
+				yp += width;
+			}
+		}
+		
+		yi = x;
+		stackIn = stackStart;
+		stackOut = stackEnd;
+		for ( y = 0; y < height; y++ )
+		{
+			p = yi << 2;
+			pixels[p+3] = pa = (a_sum * mul_sum) >> shg_sum;
+			if ( pa > 0 )
+			{
+				pa = 255 / pa;
+				pixels[p]   = ((r_sum * mul_sum) >> shg_sum ) * pa;
+				pixels[p+1] = ((g_sum * mul_sum) >> shg_sum ) * pa;
+				pixels[p+2] = ((b_sum * mul_sum) >> shg_sum ) * pa;
+			} else {
+				pixels[p] = pixels[p+1] = pixels[p+2] = 0;
+			}
+			
+			r_sum -= r_out_sum;
+			g_sum -= g_out_sum;
+			b_sum -= b_out_sum;
+			a_sum -= a_out_sum;
+		   
+			r_out_sum -= stackIn.r;
+			g_out_sum -= stackIn.g;
+			b_out_sum -= stackIn.b;
+			a_out_sum -= stackIn.a;
+			
+			p = ( x + (( ( p = y + radiusPlus1) < heightMinus1 ? p : heightMinus1 ) * width )) << 2;
+			
+			r_sum += ( r_in_sum += ( stackIn.r = pixels[p]));
+			g_sum += ( g_in_sum += ( stackIn.g = pixels[p+1]));
+			b_sum += ( b_in_sum += ( stackIn.b = pixels[p+2]));
+			a_sum += ( a_in_sum += ( stackIn.a = pixels[p+3]));
+		   
+			stackIn = stackIn.next;
+			
+			r_out_sum += ( pr = stackOut.r );
+			g_out_sum += ( pg = stackOut.g );
+			b_out_sum += ( pb = stackOut.b );
+			a_out_sum += ( pa = stackOut.a );
+			
+			r_in_sum -= pr;
+			g_in_sum -= pg;
+			b_in_sum -= pb;
+			a_in_sum -= pa;
+			
+			stackOut = stackOut.next;
+			
+			yi += width;
+		}
+	}
+}
+
+function BlurStack()
+{
+	this.r = 0;
+	this.g = 0;
+	this.b = 0;
+	this.a = 0;
+	this.next = null;
+}
+
+module.exports = blur;
 },{}]},{},[1]);
