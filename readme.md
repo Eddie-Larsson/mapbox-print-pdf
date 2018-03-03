@@ -44,7 +44,8 @@ Example usage for printing a map in A2 format with a footer and a map scale cont
 }
 .footer {
   width:100%;
-  height:100px;
+  height:auto;
+  overflow:hidden;
   margin-top: 10px;
 }
 .info {
@@ -56,7 +57,7 @@ Example usage for printing a map in A2 format with a footer and a map scale cont
 ```
 
 ```Html
-<div data-scale-height="margin-top height" id="footer" class="footer">
+<div data-scale-height="margin-top" id="footer" class="footer">
   <p data-scale-sum="font-size" class="info"><span>Created with</span>: © Mapbox, © OpenStreetMap</p>
   <p data-scale-sum="font-size" class="info"><span>Author</span>: Eddie Larsson</p>
 </div>
@@ -72,7 +73,6 @@ printPdf.build()
   .format("a2")
   .footer({
     html: document.getElementById("footer"),
-    height: {value: 110, unit: "px"},
     baseline: {format: "a4", orientation: "p"}
   }, elementClonedCb)
   .scale({maxWidthPercent: 10, unit: "metric"})
@@ -103,8 +103,7 @@ The attributes data-scale-height and data-scale-sum are used to allow for scalin
 * **Millimiters**, "mm"
 * **Centimeters**, "cm"
 
-One important thing to note is that when specifying a custom format or
-margins pixels can't be used.
+One important thing to note is that when specifying a custom format or margins pixels can't be used.
 
 ## Custom formats
 Custom formats can either be supplied when calling format, this is then in the form of an object containg width,height,unit and name of the format. The same form of object can also be added like so:
@@ -161,7 +160,7 @@ printPdf.build()
 ```
 
 ## Header/footer
-A header and/or footer can be specified either by passing in an html string or html object, the latter is usually preferred. In addition to the html itself the baseline format the header/footer was designed for must be provided, this could be a custom format (a name property isn't neccessary) or the name of a registered format. An additional optional property is the orientation of the baseline format (default is portrait). Lastly the height of the header/footer should be included, this should be the height as it was in the baseline format.
+A header and/or footer can be specified either by passing in an html string or html object, the latter is usually preferred. In addition to the html itself the baseline format the header/footer was designed for must be provided, this could be a custom format (a name property isn't neccessary) or the name of a registered format. An additional optional property is the orientation of the baseline format (default is portrait). The header/footer height is based on the content height, so specify what it in the normal css.
 
 ```javascript
 var printPdf = require('mapbox-print-pdf');
@@ -169,8 +168,7 @@ var printPdf = require('mapbox-print-pdf');
 printPdf.build()
         .header({
           html: '<div><p data-scale-sum="font-size">I\'m a header</p>',
-          baseline: {format: 'a4', orientation: 'l'},
-          height: {value: 50, unit: "pt"}
+          baseline: {format: 'a4', orientation: 'l'}
         })
         .footer({
           html: document.getElementById('footer-template'),
@@ -180,8 +178,7 @@ printPdf.build()
               width: 300,
               unit: "pt"
             }
-          },
-          height: {value: 20, unit: "pt"}
+          }
         }, function(elem) {
           elem.removeAttribute("id");
         })
@@ -200,11 +197,11 @@ Custom scaling functions can be specified in the header/footer object, this shou
 
 The second argument to the handler function has the following properties:
 
-* **heightRatio**, the ratio between the original height and the new height.
-* **widthRatio**, the ratio between the original width and the new width.
-* **sumRatio**, the ratio between the sum of the width and height of the original size and the new size.
-* **original**: A dimension object containing width, height and unit of the original size.
-* **current**: A dimension object containing width, height and unit of the new size.
+* **heightRatio**, the ratio between the baseline height and the current height.
+* **widthRatio**, the ratio between the baseline width and the current width.
+* **sumRatio**, the ratio between the sum of the width and height of the baseline format and the current format.
+* **original**: A dimension object containing width, height and unit of the baseline format.
+* **current**: A dimension object containing width, height and unit of the current format.
 
 The dimension objects have the following methods:
 
@@ -233,7 +230,6 @@ printPdf.build()
         .header({
           html: document.getElementById("header-template"),
           baseline: "a4",
-          height: {value: 50, unit: "pt"},
           handlers: {"custom-handler": customHandler}
         }, function(elem) {
           elem.removeAttribute("id");
