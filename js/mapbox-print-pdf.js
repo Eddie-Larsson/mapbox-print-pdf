@@ -58,6 +58,7 @@ var PdfBuilder = (function() {
         var header = null;
         var footer = null;
         var scale = null;
+        var css = [];
         var actualPixelRatio = -1;
         var margins = Margin.createPDFMargin(0, UNITS.Points);
         var that = this;
@@ -102,7 +103,7 @@ var PdfBuilder = (function() {
                 };
 
                 var whenCloned = function(doc) {
-                    Html.removeStylesExceptMapbox(doc);
+                    Html.removeStylesExceptMapbox(doc, css);
                     Html.clearBodyExceptContainer(doc);
                 };
                 html2canvas(htmlDoc, {
@@ -211,6 +212,15 @@ var PdfBuilder = (function() {
                 scale = nwScale;
             } else {
                 console.error('The given scale is invalid: ' + nwScale);
+            }
+            return that;
+        };
+
+        this.keepCSS = function(_css) {
+            if(check.isArray(_css)) {
+                css = _css;
+            } else if(check.isString(_css)) {
+                css = [_css];
             }
             return that;
         };

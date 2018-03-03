@@ -95,11 +95,12 @@ var createOrReturnHTML = function (html) {
     }
 };
 
-var removeStylesExceptMapbox = function (doc) {
+var removeStylesExceptMapbox = function (doc, cssToKeep) {
     var links = Array.prototype.slice.call(doc.getElementsByTagName('LINK'));
     for (var i = 0; i < links.length; ++i) {
         var link = links[i];
         if (link.tagName != 'LINK' || link.href.indexOf('mapbox') != -1 || link.hasAttribute(ATTR_PRESERVE_CSS)) continue;
+        if(cssToKeep.indexOf(link.href) !== -1) continue;
         link.parentNode.removeChild(link);
     }
 };

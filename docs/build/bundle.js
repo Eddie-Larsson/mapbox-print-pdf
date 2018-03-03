@@ -593,11 +593,12 @@ var createOrReturnHTML = function (html) {
     }
 };
 
-var removeStylesExceptMapbox = function (doc) {
+var removeStylesExceptMapbox = function (doc, cssToKeep) {
     var links = Array.prototype.slice.call(doc.getElementsByTagName('LINK'));
     for (var i = 0; i < links.length; ++i) {
         var link = links[i];
         if (link.tagName != 'LINK' || link.href.indexOf('mapbox') != -1 || link.hasAttribute(ATTR_PRESERVE_CSS)) continue;
+        if(cssToKeep.indexOf(link.href) !== -1) continue;
         link.parentNode.removeChild(link);
     }
 };
@@ -856,6 +857,7 @@ var PdfBuilder = (function() {
         var header = null;
         var footer = null;
         var scale = null;
+        var css = [];
         var actualPixelRatio = -1;
         var margins = Margin.createPDFMargin(0, UNITS.Points);
         var that = this;
@@ -900,7 +902,7 @@ var PdfBuilder = (function() {
                 };
 
                 var whenCloned = function(doc) {
-                    Html.removeStylesExceptMapbox(doc);
+                    Html.removeStylesExceptMapbox(doc, css);
                     Html.clearBodyExceptContainer(doc);
                 };
                 html2canvas(htmlDoc, {
@@ -1009,6 +1011,15 @@ var PdfBuilder = (function() {
                 scale = nwScale;
             } else {
                 console.error('The given scale is invalid: ' + nwScale);
+            }
+            return that;
+        };
+
+        this.keepCSS = function(_css) {
+            if(check.isArray(_css)) {
+                css = _css;
+            } else if(check.isString(_css)) {
+                css = [_css];
             }
             return that;
         };
