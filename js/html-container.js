@@ -100,7 +100,7 @@ var removeStylesExceptMapbox = function (doc, cssToKeep) {
     for (var i = 0; i < links.length; ++i) {
         var link = links[i];
         if (link.tagName != 'LINK' || link.href.indexOf('mapbox') != -1 || link.hasAttribute(ATTR_PRESERVE_CSS)) continue;
-        if(cssToKeep.indexOf(link.href) !== -1) continue;
+        if(cssToKeep.indexOf(link.href) !== -1 || cssToKeep.indexOf(link.href.replace(window.location.href, '')) !== -1) continue;
         link.parentNode.removeChild(link);
     }
 };
