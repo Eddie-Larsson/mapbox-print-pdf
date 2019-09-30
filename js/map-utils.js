@@ -82,11 +82,11 @@ function addScale(map, scale, mapboxgl) {
     });
 }
 
-function createPrintMap(map, mapboxgl, container) {
+function createPrintMap(map, mapboxgl, container, mergeOptions) {
     return new Promise(function (resolve, reject) {
 
         try {
-            var renderMap = new mapboxgl.Map({
+            var renderMap =  new mapboxgl.Map(Object.assign({}, {
                 container: container,
                 center: map.getCenter(),
                 style: map.getStyle(),
@@ -95,8 +95,8 @@ function createPrintMap(map, mapboxgl, container) {
                 pitch: map.getPitch(),
                 interactive: false,
                 attributionControl: false,
-                preserveDrawingBuffer: true
-            });
+                preserveDrawingBuffer: true,
+            }, mergeOptions));
             renderMap.fitBounds(map.getBounds());
 
             resolve(renderMap);

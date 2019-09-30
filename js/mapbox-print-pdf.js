@@ -257,7 +257,7 @@ var PdfBuilder = (function() {
                 checkStyle();
             });
         };
-        this.print = function(map, mapboxgl) {
+        this.print = function(map, mapboxgl, mergeOptions) {
             
             if (!map.isStyleLoaded()) {
                 
@@ -285,7 +285,7 @@ var PdfBuilder = (function() {
                             });
                     });
                 };
-                mapUtils.createPrintMap(map, mapboxgl, container)
+                mapUtils.createPrintMap(map, mapboxgl, container, mergeOptions)
                     .then(afterRenderMapCreate)
                     .then(resolve, reject);
             });
