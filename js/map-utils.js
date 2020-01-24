@@ -86,7 +86,7 @@ function createPrintMap(map, mapboxgl, container, mergeOptions) {
     return new Promise(function (resolve, reject) {
 
         try {
-            var renderMap =  new mapboxgl.Map(Object.assign({}, {
+            var renderMap =  new mapboxgl.Map(Object.assign({}, mergeOptions, {
                 container: container,
                 center: map.getCenter(),
                 style: map.getStyle(),
@@ -96,7 +96,7 @@ function createPrintMap(map, mapboxgl, container, mergeOptions) {
                 interactive: false,
                 attributionControl: false,
                 preserveDrawingBuffer: true,
-            }, mergeOptions));
+            }));
 
             renderMap.fitBounds(map.getBounds().toArray());
 
