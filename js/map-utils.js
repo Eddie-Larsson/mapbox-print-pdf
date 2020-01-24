@@ -96,6 +96,7 @@ function createPrintMap(map, mapboxgl, container, mergeOptions) {
                 interactive: false,
                 attributionControl: false,
                 preserveDrawingBuffer: true,
+                antialias: true,
             }));
 
             renderMap.fitBounds(map.getBounds().toArray());
