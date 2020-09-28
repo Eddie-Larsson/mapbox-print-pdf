@@ -1,4 +1,5 @@
-
+var FormatConfig = require('./format-config.js');
+var controls = require('./controls.js');
 var check = require('./type-check.js');
 var UNITS = require('./dimensions.js').UNITS;
 var QUIESCE_TIMEOUT = 500;
@@ -65,16 +66,56 @@ function waitForMapToRender(map) {
 
 }
 
-function addScale(map, scale, mapboxgl) {
+function addScale(map, scale, mapboxgl, {format, orientation, clientHeight, clientWidth}) {
+  return new Promise(function (resolve, reject) {
+
+    try {
+      if (scale) {
+        if (scale.graphic) {
+          map.addControl(new mapboxgl.ScaleControl({
+            maxWidth: scale.maxWidthPercent * map._container.scrollWidth,
+            unit: scale.unit
+          }));
+        }
+
+        if (scale.numeric) {
+          console.log(orientation);
+          let ratio = 1;
+          if(orientation === 'l'){
+            var dimensions = FormatConfig.getFormat(format);
+            const maxWidth = dimensions.to('cm').height();
+            const y = clientHeight / 2;
+            const left = map.unproject([0, y]);
+            const right = map.unproject([clientWidth, y]);
+            const maxMeters = left.distanceTo(right);
+            ratio = maxMeters * (0.01 / (maxWidth / 100));
+          } else {
+            var dimensions = FormatConfig.getFormat(format);
+            const maxWidth = dimensions.to('cm').width();
+            const y = clientHeight / 2;
+            const left = map.unproject([0, y]);
+            const right = map.unproject([clientWidth, y]);
+            const maxMeters = left.distanceTo(right);
+            ratio = maxMeters * (0.01 / (maxWidth / 100));
+          }
+
+          map.addControl(new controls.NumericScaleControl(ratio), "bottom-left")
+        }
+      }
+      resolve(map);
+    } catch (err) {
+      reject(err);
+    }
+  });
+}
+
+function addCustomControls(map, customControls) {
     return new Promise(function (resolve, reject) {
 
         try {
-            if (scale) {
-                map.addControl(new mapboxgl.ScaleControl({
-                    maxWidth: scale.maxWidthPercent * map._container.scrollWidth,
-                    unit: scale.unit
-                }));
-            }
+            customControls.forEach(control => {
+                map.addControl(control.component, control.position)
+            })
             resolve(map);
         } catch (err) {
             reject(err);
@@ -113,5 +154,6 @@ module.exports = {
     createPrintMap: createPrintMap,
     isValidScaleObject: isValidScaleObject,
     addScale: addScale,
-    waitForMapToRender: waitForMapToRender
+    waitForMapToRender: waitForMapToRender,
+    addCustomControls: addCustomControls
 };
