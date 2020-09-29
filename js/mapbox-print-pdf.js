@@ -257,7 +257,7 @@ var PdfBuilder = (function() {
                 checkStyle();
             });
         };
-        this.print = function(map, mapboxgl) {
+        this.print = function(map, mapboxgl, mergeOptions, customControls) {
             
             if (!map.isStyleLoaded()) {
                 
@@ -273,7 +273,11 @@ var PdfBuilder = (function() {
                 
                 var afterRenderMapCreate = function(renderMap) {
                     return new Promise(function (res, rej) {
-                        mapUtils.addScale(renderMap, scale, mapboxgl)
+                        const clientHeight = map._container.clientHeight
+                        const clientWidth = map._container.clientWidth
+
+                        mapUtils.addScale(renderMap, scale, mapboxgl, {format, orientation, clientHeight, clientWidth})
+                            .then(() => mapUtils.addCustomControls(renderMap, customControls))
                             .then(mapUtils.waitForMapToRender)
                             .then(_printMap)
                             .then(function(pdf) {
@@ -285,7 +289,7 @@ var PdfBuilder = (function() {
                             });
                     });
                 };
-                mapUtils.createPrintMap(map, mapboxgl, container)
+                mapUtils.createPrintMap(map, mapboxgl, container, mergeOptions)
                     .then(afterRenderMapCreate)
                     .then(resolve, reject);
             });
